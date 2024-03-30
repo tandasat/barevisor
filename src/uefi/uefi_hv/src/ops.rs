@@ -19,7 +19,7 @@ impl hv::PlatformOps for UefiOps {
         let bs = self.system_table.boot_services();
         let handle = bs.get_handle_for_protocol::<MpServices>().unwrap();
         let mp_services = bs.open_protocol_exclusive::<MpServices>(handle).unwrap();
-        mp_services.get_number_of_processors().unwrap().enabled as u32
+        u32::try_from(mp_services.get_number_of_processors().unwrap().enabled).unwrap()
     }
 
     fn run_on_all_processors(&self, callback: fn()) {

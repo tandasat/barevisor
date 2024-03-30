@@ -2,6 +2,14 @@
 name = "hv"
 version = "0.1.0"
 edition = "2021"
+authors = ["Satoshi Tanda <tanda.sat@gmail.com>"]
+description = "A simple hypervisor demonstrating the use of the Intel VT-rp (redirect protection) technology"
+license = "MIT"
+repository = "https://github.com/tandasat/Hello-VT-rp"
+keywords = ["VT-rp", "UEFI", "hypervisor"]
+categories = ["development-tools::testing", "no-std"]
+readme = "./README.md"
+publish = false
 
 [dependencies]
 thiserror-no-std = "2.0"
@@ -21,14 +29,12 @@ num-traits = { version = "0.2", default-features = false }
 [dev-dependencies]
 env_logger = "0.11"
 
-
 [features]
 # TBD
 default = []
 
 # Supports being loaded as a UEFI module.
 uefi = []
-
 
 [workspace.lints.rust]
 # groups: https://doc.rust-lang.org/rustc/lints/groups.html

@@ -1,10 +1,16 @@
 [package]
 name = "check_hv_vendor"
-version = "0.1.0"
+description = "Demo client for a UEFI environment"
+version.workspace = true
 edition.workspace = true
-publish.workspace = true
+authors.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+publish.workspace = true
 
 [dependencies]
 core_affinity = "0.8.1"
-x86.workspace = true
+x86 = "0.52"

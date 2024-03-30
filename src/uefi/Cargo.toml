@@ -1,5 +1,5 @@
 [workspace]
-members = [ "check_hv_vendor","uefi_hv", "xtask"]
+members = ["check_hv_vendor", "uefi_hv", "xtask"]
 resolver = "2"
 
 [workspace.package]
@@ -12,6 +12,7 @@ repository = "https://github.com/tandasat/Hello-VT-rp"
 keywords = ["VT-rp", "UEFI", "hypervisor"]
 categories = ["development-tools::testing", "no-std"]
 readme = "./README.md"
+publish = false
 
 [workspace.lints.rust]
 # groups: https://doc.rust-lang.org/rustc/lints/groups.html
@@ -46,7 +47,7 @@ unused_results = "warn"
 # https://github.com/rust-lang/rust-clippy/blob/master/README.md
 [workspace.lints.clippy]
 pedantic = "warn"
-cargo = "warn"
+#cargo = "warn"
 
 # https://doc.rust-lang.org/rustdoc/lints.html
 [workspace.lints.rustdoc]

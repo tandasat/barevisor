@@ -10,7 +10,7 @@ pub(crate) struct WindowsOps {}
 
 impl hv::PlatformOps for WindowsOps {
     fn processor_count(&self) -> u32 {
-        unsafe { KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS as _) }
+        unsafe { KeQueryActiveProcessorCountEx(u16::try_from(ALL_PROCESSOR_GROUPS).unwrap()) }
     }
 
     fn run_on_all_processors(&self, callback: fn()) {
@@ -36,6 +36,9 @@ impl hv::PlatformOps for WindowsOps {
     }
 
     fn pa(&self, va: *const core::ffi::c_void) -> u64 {
-        unsafe { MmGetPhysicalAddress(va as *mut _).QuadPart as u64 }
+        #[allow(clippy::cast_sign_loss)]
+        unsafe {
+            MmGetPhysicalAddress(va.cast_mut()).QuadPart as u64
+        }
     }
 }

@@ -1,10 +1,17 @@
 [package]
 name = "win_hv"
-version = "0.1.0"
-license.workspace = true
-publish.workspace = true
+description = "Demo client for a UEFI environment"
+version.workspace = true
 edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+publish.workspace = true
 
+# no_std cannot support `cargo test` and `cargo bench`
 [lib]
 crate-type = ["cdylib"]
 test = false

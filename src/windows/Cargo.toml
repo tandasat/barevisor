@@ -3,12 +3,16 @@ members = ["check_hv_vendor", "win_hv"]
 resolver = "2"
 
 [workspace.package]
+version = "0.1.0"
 edition = "2021"
-publish = false
+authors = ["Satoshi Tanda <tanda.sat@gmail.com>"]
+description = "A simple hypervisor demonstrating the use of the Intel VT-rp (redirect protection) technology"
 license = "MIT"
-
-[workspace.dependencies]
-x86 = "0.52"
+repository = "https://github.com/tandasat/Hello-VT-rp"
+keywords = ["VT-rp", "UEFI", "hypervisor"]
+categories = ["development-tools::testing", "no-std"]
+readme = "./README.md"
+publish = false
 
 [profile.dev]
 panic = "abort"
@@ -49,7 +53,7 @@ unused_results = "warn"
 # https://github.com/rust-lang/rust-clippy/blob/master/README.md
 [workspace.lints.clippy]
 pedantic = "warn"
-cargo = "warn"
+#cargo = "warn"
 
 # https://doc.rust-lang.org/rustdoc/lints.html
 [workspace.lints.rustdoc]
