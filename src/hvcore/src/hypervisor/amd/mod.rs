@@ -1,6 +1,6 @@
 use super::vmm::Architecture;
 
-pub(crate) mod svm;
+mod svm;
 
 pub(crate) struct Amd;
 

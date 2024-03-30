@@ -179,11 +179,11 @@ impl VirtualMachine for Vm {
         match self.vmcb.control_area.exit_code {
             VMEXIT_EXCEPTION_SX => {
                 self.handle_security_exception();
-                VmExitReason::NothingToDo
+                VmExitReason::InitSignal
             }
             VMEXIT_NPF => {
                 self.handle_nested_page_fault();
-                VmExitReason::NothingToDo
+                VmExitReason::NestedPageFault
             }
             VMEXIT_CPUID => VmExitReason::Cpuid(InstrInterceptionQualification {
                 next_rip: self.vmcb.control_area.nrip,

@@ -37,7 +37,9 @@ pub(crate) enum VmExitReason {
     Rdmsr(InstrInterceptionQualification),
     Wrmsr(InstrInterceptionQualification),
     XSetBv(InstrInterceptionQualification),
-    NothingToDo,
+    InitSignal,
+    StartupIpi,
+    NestedPageFault,
 }
 
 #[repr(C)]
@@ -73,7 +75,8 @@ fn virtualize_core<T: Architecture>(params: &VCpuParameters) -> ! {
             VmExitReason::Rdmsr(info) => handle_rdmsr(vm, &info),
             VmExitReason::Wrmsr(info) => handle_wrmsr(vm, &info),
             VmExitReason::XSetBv(info) => handle_xsetbv(vm, &info),
-            VmExitReason::NothingToDo => {}
+            VmExitReason::InitSignal | VmExitReason::StartupIpi | VmExitReason::NestedPageFault => {
+            }
         }
     }
 }

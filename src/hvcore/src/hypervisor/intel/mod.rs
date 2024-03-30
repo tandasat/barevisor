@@ -1,7 +1,6 @@
 use super::vmm::Architecture;
 
 mod epts;
-mod init;
 mod mtrr;
 mod vmcs;
 mod vmx;
