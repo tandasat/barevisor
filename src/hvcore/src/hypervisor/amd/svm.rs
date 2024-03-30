@@ -17,8 +17,10 @@ use x86::{
 };
 
 use crate::{
-    hypervisor::cpu_id_from,
-    intel::vm::{InstrInterceptionQualification, VmExitReason},
+    hypervisor::{
+        cpu_id_from, Extension, InstrInterceptionQualification, VirtualMachine, VmExitReason,
+        HV_SHARED_DATA,
+    },
     utils::{
         capture_registers::GuestRegisters,
         paging_structures::NestedPageTables,
@@ -26,15 +28,6 @@ use crate::{
         x86_instructions::{cr0, cr3, cr4, rdmsr, sgdt, sidt, wrmsr},
     },
 };
-
-use super::{Extension, VirtualMachine, HV_SHARED_DATA};
-
-pub(crate) struct Amd;
-
-impl crate::hypervisor::Architecture for Amd {
-    type Extension = Svm;
-    type VirtualMachine = Vm;
-}
 
 struct SharedVmData {
     npt: RwLock<NestedPageTables>,
@@ -53,7 +46,10 @@ impl SharedVmData {
         npt.build_identity();
 
         let apic_base_raw = rdmsr(IA32_APIC_BASE);
-        assert!(!apic_base_raw.get_bit(10), "x2APIC is enabled but not supported");
+        assert!(
+            !apic_base_raw.get_bit(10),
+            "x2APIC is enabled but not supported"
+        );
         assert!(apic_base_raw.get_bit(11), "APIC is disabled");
         let apic_base = apic_base_raw & !0xfff;
 
@@ -197,7 +193,10 @@ impl VirtualMachine for Vm {
             }),
             _ => {
                 log::error!("{:#x?}", self.vmcb);
-                panic!("Unhandled VM-exit reason: {:?}", self.vmcb.control_area.exit_code)
+                panic!(
+                    "Unhandled VM-exit reason: {:?}",
+                    self.vmcb.control_area.exit_code
+                )
             }
         }
     }
@@ -711,7 +710,7 @@ extern "efiapi" {
     /// Saves registers to VMCS
     fn asm_vmsave(vmcb_pa: u64);
 }
-global_asm!(include_str!("../utils/capture_registers.inc"));
+global_asm!(include_str!("../../utils/capture_registers.inc"));
 global_asm!(include_str!("svm_run_vm.S"));
 
 /// Returns the access rights of the given segment for SVM.

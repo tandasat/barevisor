@@ -8,8 +8,10 @@ use x86::{
 };
 
 use crate::{
-    hypervisor::HV_SHARED_DATA,
-    intel::vmcs::{vmread, vmwrite, vmx_succeed},
+    hypervisor::{
+        intel::vmcs::{vmread, vmwrite, vmx_succeed},
+        InstrInterceptionQualification, VmExitReason, HV_SHARED_DATA,
+    },
     utils::{
         capture_registers::GuestRegisters,
         platform,
@@ -23,20 +25,6 @@ use super::{
     epts::Epts,
     vmcs::{vmclear, vmptrld, Vmcs},
 };
-
-pub(crate) struct InstrInterceptionQualification {
-    pub(crate) next_rip: u64,
-}
-
-pub(crate) enum VmExitReason {
-    Cpuid(InstrInterceptionQualification),
-    Rdmsr(InstrInterceptionQualification),
-    Wrmsr(InstrInterceptionQualification),
-    XSetBv(InstrInterceptionQualification),
-    Init,
-    Sipi,
-    NothingToDo,
-}
 
 pub(crate) struct SharedVmData {
     pub(crate) msr_bitmaps: Box<Page>,
@@ -143,7 +131,10 @@ impl Vm {
             }),
             _ => {
                 log::error!("{:#x?}", self.vmcs);
-                panic!("Unhandled VM-exit reason: {:?}", vmread(vmcs::ro::EXIT_REASON))
+                panic!(
+                    "Unhandled VM-exit reason: {:?}",
+                    vmread(vmcs::ro::EXIT_REASON)
+                )
             }
         }
     }
@@ -230,13 +221,31 @@ impl Vm {
         vmwrite(vmcs::guest::TR_LIMIT, lsl(tr()));
         //vmwrite(vmcs::guest::LDTR_LIMIT, lsl(ldtr())); // TODO: check
 
-        vmwrite(vmcs::guest::ES_ACCESS_RIGHTS, Self::access_rights(lar(es())));
-        vmwrite(vmcs::guest::CS_ACCESS_RIGHTS, Self::access_rights(lar(cs())));
+        vmwrite(
+            vmcs::guest::ES_ACCESS_RIGHTS,
+            Self::access_rights(lar(es())),
+        );
+        vmwrite(
+            vmcs::guest::CS_ACCESS_RIGHTS,
+            Self::access_rights(lar(cs())),
+        );
         vmwrite(vmcs::guest::SS_ACCESS_RIGHTS, Self::access_rights(lar(ss)));
-        vmwrite(vmcs::guest::DS_ACCESS_RIGHTS, Self::access_rights(lar(ds())));
-        vmwrite(vmcs::guest::FS_ACCESS_RIGHTS, Self::access_rights(lar(fs())));
-        vmwrite(vmcs::guest::GS_ACCESS_RIGHTS, Self::access_rights(lar(gs())));
-        vmwrite(vmcs::guest::TR_ACCESS_RIGHTS, Self::access_rights(lar(tr())));
+        vmwrite(
+            vmcs::guest::DS_ACCESS_RIGHTS,
+            Self::access_rights(lar(ds())),
+        );
+        vmwrite(
+            vmcs::guest::FS_ACCESS_RIGHTS,
+            Self::access_rights(lar(fs())),
+        );
+        vmwrite(
+            vmcs::guest::GS_ACCESS_RIGHTS,
+            Self::access_rights(lar(gs())),
+        );
+        vmwrite(
+            vmcs::guest::TR_ACCESS_RIGHTS,
+            Self::access_rights(lar(tr())),
+        );
         vmwrite(vmcs::guest::LDTR_ACCESS_RIGHTS, Self::access_rights(0));
 
         vmwrite(vmcs::guest::FS_BASE, rdmsr(x86::msr::IA32_FS_BASE));
@@ -259,10 +268,22 @@ impl Vm {
         vmwrite(vmcs::guest::IDTR_BASE, idtr.base as u64);
         vmwrite(vmcs::guest::IDTR_LIMIT, idtr.limit);
 
-        vmwrite(vmcs::guest::IA32_DEBUGCTL_FULL, rdmsr(x86::msr::IA32_DEBUGCTL));
-        vmwrite(vmcs::guest::IA32_SYSENTER_CS, rdmsr(x86::msr::IA32_SYSENTER_CS));
-        vmwrite(vmcs::guest::IA32_SYSENTER_EIP, rdmsr(x86::msr::IA32_SYSENTER_EIP));
-        vmwrite(vmcs::guest::IA32_SYSENTER_ESP, rdmsr(x86::msr::IA32_SYSENTER_ESP));
+        vmwrite(
+            vmcs::guest::IA32_DEBUGCTL_FULL,
+            rdmsr(x86::msr::IA32_DEBUGCTL),
+        );
+        vmwrite(
+            vmcs::guest::IA32_SYSENTER_CS,
+            rdmsr(x86::msr::IA32_SYSENTER_CS),
+        );
+        vmwrite(
+            vmcs::guest::IA32_SYSENTER_EIP,
+            rdmsr(x86::msr::IA32_SYSENTER_EIP),
+        );
+        vmwrite(
+            vmcs::guest::IA32_SYSENTER_ESP,
+            rdmsr(x86::msr::IA32_SYSENTER_ESP),
+        );
 
         vmwrite(vmcs::guest::LINK_PTR_FULL, u64::MAX);
 
@@ -429,7 +450,7 @@ extern "efiapi" {
     /// Runs the VM until VM-exit occurs.
     fn run_vmx_vm(registers: &mut GuestRegisters) -> u64;
 }
-global_asm!(include_str!("../utils/capture_registers.inc"));
+global_asm!(include_str!("../../utils/capture_registers.inc"));
 global_asm!(include_str!("run_vmx_vm.S"));
 
 #[allow(dead_code)]

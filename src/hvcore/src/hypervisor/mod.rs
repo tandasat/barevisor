@@ -1,5 +1,6 @@
+mod amd;
 mod init;
-mod svm;
+mod intel;
 mod switch_stack;
 mod vmm;
 
@@ -114,6 +115,20 @@ pub(crate) trait VirtualMachine {
     fn new(id: u8) -> Self;
     fn activate(&mut self);
     fn initialize(&mut self, regs: &GuestRegisters);
-    fn run(&mut self) -> crate::intel::vm::VmExitReason;
+    fn run(&mut self) -> VmExitReason;
     fn regs(&mut self) -> &mut GuestRegisters;
+}
+
+pub(crate) struct InstrInterceptionQualification {
+    pub(crate) next_rip: u64,
+}
+
+pub(crate) enum VmExitReason {
+    Cpuid(InstrInterceptionQualification),
+    Rdmsr(InstrInterceptionQualification),
+    Wrmsr(InstrInterceptionQualification),
+    XSetBv(InstrInterceptionQualification),
+    Init,
+    Sipi,
+    NothingToDo,
 }

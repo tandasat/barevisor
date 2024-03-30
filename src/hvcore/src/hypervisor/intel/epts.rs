@@ -4,7 +4,7 @@ use x86::{
     current::paging::{BASE_PAGE_SHIFT, LARGE_PAGE_SIZE},
 };
 
-use crate::{intel::mtrr::MemoryType, utils::platform};
+use crate::{hypervisor::intel::mtrr::MemoryType, utils::platform};
 
 use super::mtrr::Mtrr;
 

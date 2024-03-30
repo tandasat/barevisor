@@ -3,7 +3,6 @@
 extern crate alloc;
 
 pub mod hypervisor;
-pub mod intel;
 pub mod utils;
 
 pub use hypervisor::virtualize_system;

@@ -6,12 +6,9 @@ use x86::{
 
 use crate::{
     hypervisor::{
-        init::handle_init_signal, HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS,
-        OUR_HV_VENDOR_NAME,
-    },
-    intel::{
-        vm::{InstrInterceptionQualification, VmExitReason},
-        vmcs::{vmread, vmwrite},
+        init::handle_init_signal,
+        intel::vmcs::{vmread, vmwrite},
+        VmExitReason, HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS, OUR_HV_VENDOR_NAME,
     },
     utils::{
         capture_registers::GuestRegisters,
@@ -21,7 +18,7 @@ use crate::{
 
 use crate::hypervisor::Extension;
 
-use super::VirtualMachine;
+use super::{amd::Amd, intel::Intel, InstrInterceptionQualification, VirtualMachine};
 
 #[repr(C)]
 pub(crate) struct VCpuParameters {
@@ -31,9 +28,9 @@ pub(crate) struct VCpuParameters {
 
 pub(crate) fn main(params: &VCpuParameters) -> ! {
     if x86::cpuid::CpuId::new().get_vendor_info().unwrap().as_str() == "GenuineIntel" {
-        virtualize_core::<crate::intel::Intel>(params)
+        virtualize_core::<Intel>(params)
     } else {
-        virtualize_core::<super::svm::Amd>(params)
+        virtualize_core::<Amd>(params)
     }
 }
 
@@ -149,5 +146,8 @@ fn handle_sipi_signal<T: VirtualMachine>(vm: &mut T) {
     vm.regs().rip = 0;
     vmwrite(vmcs::guest::RIP, vm.regs().rip);
 
-    vmwrite(vmcs::guest::ACTIVITY_STATE, GuestActivityState::Active as u32);
+    vmwrite(
+        vmcs::guest::ACTIVITY_STATE,
+        GuestActivityState::Active as u32,
+    );
 }

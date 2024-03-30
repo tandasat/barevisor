@@ -8,7 +8,7 @@
 use {
     super::{vmm::GuestActivityState, VirtualMachine},
     crate::{
-        intel::vmcs::{vmread, vmwrite},
+        hypervisor::intel::vmcs::{vmread, vmwrite},
         utils::x86_instructions::rdmsr,
     },
     x86::{
@@ -208,7 +208,10 @@ pub(crate) fn handle_init_signal<T: VirtualMachine>(vm: &mut T) {
     //
     // Set the activity state to "Wait for SIPI".
     //
-    vmwrite(vmcs::guest::ACTIVITY_STATE, GuestActivityState::WaitForSipi as u32);
+    vmwrite(
+        vmcs::guest::ACTIVITY_STATE,
+        GuestActivityState::WaitForSipi as u32,
+    );
 }
 
 /// Adjusts guest CR0 considering UnrestrictedGuest feature and fixed MSRs.
