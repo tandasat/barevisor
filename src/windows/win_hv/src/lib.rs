@@ -24,7 +24,7 @@ extern "system" fn driver_entry(
 ) -> NTSTATUS {
     eprintln!("Loading the win_hv.sys");
 
-    hv::init_ops(Box::new(ops::WindowsOps {}));
+    hv::init(Box::new(ops::WindowsOps {}));
     hv::virtualize_system(hv::SharedData::default());
 
     eprintln!("Loaded the win_hv.sys");

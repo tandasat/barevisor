@@ -1,13 +1,12 @@
 use alloc::boxed::Box;
 use x86::controlregs::{Cr0, Cr4};
 
-use crate::{
-    hypervisor::intel::init::handle_init_signal,
-    hypervisor::{
-        platform_ops,
-        support::zeroed_box,
-        x86_instructions::{cr0, cr0_write, cr4, cr4_write, rdmsr, wrmsr},
-    },
+use crate::hypervisor::{
+    intel::init::handle_init_signal,
+    platform_ops,
+    support::zeroed_box,
+    vmm::{Extension, InstrInterceptionQualification, VirtualMachine, VmExitReason},
+    x86_instructions::{cr0, cr0_write, cr4, cr4_write, rdmsr, wrmsr},
 };
 
 pub(crate) struct Vmx {
@@ -15,7 +14,7 @@ pub(crate) struct Vmx {
     enabled: bool,
 }
 
-impl crate::hypervisor::Extension for Vmx {
+impl Extension for Vmx {
     fn enable(&mut self) {
         self.enable_();
     }
@@ -171,7 +170,7 @@ use crate::{
     },
     hypervisor::{
         intel::vmcs::{vmread, vmwrite, vmx_succeed},
-        InstrInterceptionQualification, VmExitReason, HV_SHARED_DATA,
+        HV_SHARED_DATA,
     },
 };
 
@@ -195,7 +194,7 @@ pub(crate) struct Vm {
     vmcs: Vmcs,
 }
 
-impl crate::hypervisor::VirtualMachine for Vm {
+impl VirtualMachine for Vm {
     fn new(id: u8) -> Self {
         let _ = SHARED_VM_DATA.call_once(|| {
             let mut epts = zeroed_box::<Epts>();

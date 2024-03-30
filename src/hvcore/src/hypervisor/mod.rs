@@ -1,25 +1,28 @@
 mod amd;
-mod intel;
-mod switch_stack;
-mod vmm;
-
-pub mod capture_registers;
+mod apic;
+mod capture_registers;
 pub mod gdt_tss;
+mod intel;
 pub mod paging_structures;
 pub mod panic;
 pub mod platform_ops;
-pub mod segment;
-pub mod support;
-pub mod x86_instructions;
+mod segment;
+mod support;
+mod switch_stack;
+mod vmm;
+mod x86_instructions;
 
 use core::sync::atomic::{AtomicU8, Ordering};
 
-use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
-use spin::{Once, RwLock};
+use alloc::{boxed::Box, vec::Vec};
+use spin::Once;
 use x86::cpuid::cpuid;
 
 use crate::hypervisor::{
-    self, capture_registers::GuestRegisters, paging_structures::PagingStructures,
+    self,
+    apic::{apic_id, cpu_id_from, APIC_ID_MAP},
+    capture_registers::GuestRegisters,
+    paging_structures::PagingStructures,
 };
 
 #[derive(Debug, Default)]
@@ -33,31 +36,6 @@ pub struct SharedData {
 pub(crate) static HV_SHARED_DATA: Once<SharedData> = Once::new();
 
 static PROCESSOR_COUNT: AtomicU8 = AtomicU8::new(0);
-
-//const ARRAY_REPEAT_VALUE: AtomicU16 = AtomicU16::new(u16::MAX);
-//let sipi_vectors = [ARRAY_REPEAT_VALUE; 64];
-//static APIC_ID_MAP: [AtomicU8; 255] =
-
-//-------------------------
-
-type ApicId = u8;
-type ProcessorId = u8;
-static APIC_ID_MAP: RwLock<BTreeMap<ApicId, ProcessorId>> = RwLock::new(BTreeMap::new());
-
-/// Gets an APIC ID.
-fn apic_id() -> ApicId {
-    // See: (AMD) CPUID Fn0000_0001_EBX LocalApicId, LogicalProcessorCount, CLFlush
-    // See: (Intel) Table 3-8. Information Returned by CPUID Instruction
-    (x86::cpuid::cpuid!(0x1).ebx >> 24) as _
-}
-
-pub(crate) fn cpu_id_from(apic_id: ApicId) -> Option<ProcessorId> {
-    let map = APIC_ID_MAP.read();
-    log::info!("ID={apic_id}, {map:#x?}");
-    map.get(&apic_id).copied()
-}
-
-//-------------------------
 
 // TODO: consider making it generic <T: SystemOps> instead of Box<dyn SystemOps>.
 pub fn virtualize_system(hv_data: SharedData) {
@@ -108,33 +86,4 @@ fn init_logger(level: log::LevelFilter) {
 #[cfg(not(test))]
 fn init_logger(level: log::LevelFilter) {
     com_logger::builder().base(0x3f8).filter(level).setup();
-}
-
-pub(crate) trait Architecture {
-    type Extension: Extension + Default;
-    type VirtualMachine: VirtualMachine + Default;
-}
-
-pub trait Extension {
-    fn enable(&mut self);
-}
-
-pub(crate) trait VirtualMachine {
-    fn new(id: u8) -> Self;
-    fn activate(&mut self);
-    fn initialize(&mut self, regs: &GuestRegisters);
-    fn run(&mut self) -> VmExitReason;
-    fn regs(&mut self) -> &mut GuestRegisters;
-}
-
-pub(crate) struct InstrInterceptionQualification {
-    pub(crate) next_rip: u64,
-}
-
-pub(crate) enum VmExitReason {
-    Cpuid(InstrInterceptionQualification),
-    Rdmsr(InstrInterceptionQualification),
-    Wrmsr(InstrInterceptionQualification),
-    XSetBv(InstrInterceptionQualification),
-    NothingToDo,
 }

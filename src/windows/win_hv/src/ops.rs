@@ -8,7 +8,7 @@ use wdk_sys::{
 
 pub(crate) struct WindowsOps {}
 
-impl hv::SystemOps for WindowsOps {
+impl hv::PlatformOps for WindowsOps {
     fn processor_count(&self) -> u32 {
         unsafe { KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS as _) }
     }

@@ -35,7 +35,7 @@ use {
 /// # Returns
 ///
 /// Returns `ExitType::Continue` to indicate the VM should continue execution post-initialization.
-pub(crate) fn handle_init_signal<T: crate::hypervisor::VirtualMachine>(vm: &mut T) {
+pub(crate) fn handle_init_signal<T: crate::hypervisor::vmm::VirtualMachine>(vm: &mut T) {
     //
     // Initializes the processor to the state after INIT as described in the Intel SDM.
     //

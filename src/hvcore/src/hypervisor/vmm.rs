@@ -6,12 +6,39 @@ use x86::{
 use crate::hypervisor::{
     capture_registers::GuestRegisters,
     x86_instructions::{cr4, cr4_write, rdmsr, wrmsr, xsetbv},
-    VmExitReason, HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS, OUR_HV_VENDOR_NAME,
+    HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS, OUR_HV_VENDOR_NAME,
 };
 
-use crate::hypervisor::Extension;
+use super::{amd::Amd, intel::Intel};
 
-use super::{amd::Amd, intel::Intel, InstrInterceptionQualification, VirtualMachine};
+pub(crate) trait Architecture {
+    type Extension: Extension + Default;
+    type VirtualMachine: VirtualMachine + Default;
+}
+
+pub(crate) trait Extension {
+    fn enable(&mut self);
+}
+
+pub(crate) trait VirtualMachine {
+    fn new(id: u8) -> Self;
+    fn activate(&mut self);
+    fn initialize(&mut self, regs: &GuestRegisters);
+    fn run(&mut self) -> VmExitReason;
+    fn regs(&mut self) -> &mut GuestRegisters;
+}
+
+pub(crate) struct InstrInterceptionQualification {
+    pub(crate) next_rip: u64,
+}
+
+pub(crate) enum VmExitReason {
+    Cpuid(InstrInterceptionQualification),
+    Rdmsr(InstrInterceptionQualification),
+    Wrmsr(InstrInterceptionQualification),
+    XSetBv(InstrInterceptionQualification),
+    NothingToDo,
+}
 
 #[repr(C)]
 pub(crate) struct VCpuParameters {
@@ -27,7 +54,7 @@ pub(crate) fn main(params: &VCpuParameters) -> ! {
     }
 }
 
-fn virtualize_core<T: super::Architecture>(params: &VCpuParameters) -> ! {
+fn virtualize_core<T: Architecture>(params: &VCpuParameters) -> ! {
     log::info!("Initializing the VM");
 
     let mut vt = T::Extension::default();
