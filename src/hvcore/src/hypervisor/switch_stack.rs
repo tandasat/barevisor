@@ -1,7 +1,7 @@
 use alloc::alloc::handle_alloc_error;
 use core::{alloc::Layout, arch::global_asm};
 
-use crate::utils::support::Page;
+use crate::hypervisor::support::Page;
 
 /// Installs the hypervisor on the current processor.
 pub(crate) fn jump_with_new_stack(

@@ -9,7 +9,7 @@ use {
     super::vmx::GuestActivityState,
     crate::{
         hypervisor::intel::vmcs::{vmread, vmwrite},
-        utils::x86_instructions::rdmsr,
+        hypervisor::x86_instructions::rdmsr,
     },
     x86::{
         bits64::rflags,

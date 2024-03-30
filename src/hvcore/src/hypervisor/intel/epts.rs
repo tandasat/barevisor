@@ -4,7 +4,7 @@ use x86::{
     current::paging::{BASE_PAGE_SHIFT, LARGE_PAGE_SIZE},
 };
 
-use crate::{hypervisor::intel::mtrr::MemoryType, utils::platform};
+use crate::{hypervisor::intel::mtrr::MemoryType, hypervisor::platform_ops};
 
 use super::mtrr::Mtrr;
 
@@ -21,7 +21,7 @@ impl Epts {
         log::trace!("{mtrr:#x?}");
         log::trace!("Initializing EPTs");
 
-        let ops = platform::ops();
+        let ops = platform_ops::get();
 
         let mut pa = 0u64;
 
@@ -77,7 +77,7 @@ impl Epts {
     }
 
     pub(crate) fn eptp(&self) -> EptPointer {
-        let ept_pml4_pa = platform::ops().pa(addr_of!(*self) as *const _);
+        let ept_pml4_pa = platform_ops::get().pa(addr_of!(*self) as *const _);
 
         let mut eptp = EptPointer::default();
         eptp.set_memory_type(MemoryType::WriteBack as _);

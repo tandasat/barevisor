@@ -3,8 +3,8 @@ use x86::controlregs::{Cr0, Cr4};
 
 use crate::{
     hypervisor::intel::init::handle_init_signal,
-    utils::{
-        platform,
+    hypervisor::{
+        platform_ops,
         support::zeroed_box,
         x86_instructions::{cr0, cr0_write, cr4, cr4_write, rdmsr, wrmsr},
     },
@@ -140,7 +140,7 @@ struct VmxonRaw {
 /// The wrapper of the VMXON instruction.
 fn vmxon(vmxon_region: &mut VmxonRaw) {
     let va = vmxon_region as *const _;
-    let pa = platform::ops().pa(va as *const _);
+    let pa = platform_ops::get().pa(va as *const _);
 
     // Safety: this project runs at CPL0.
     unsafe { x86::bits64::vmx::vmxon(pa).unwrap() };
@@ -164,14 +164,14 @@ use x86::{
 
 use crate::{
     hypervisor::{
-        intel::vmcs::{vmread, vmwrite, vmx_succeed},
-        InstrInterceptionQualification, VmExitReason, HV_SHARED_DATA,
-    },
-    utils::{
         capture_registers::GuestRegisters,
         segment::SegmentDescriptor,
         support::Page,
         x86_instructions::{cr3, lar, ldtr, lsl, sgdt, sidt, tr},
+    },
+    hypervisor::{
+        intel::vmcs::{vmread, vmwrite, vmx_succeed},
+        InstrInterceptionQualification, VmExitReason, HV_SHARED_DATA,
     },
 };
 
@@ -343,7 +343,7 @@ impl Vm {
 
         let shared_vm_data = SHARED_VM_DATA.get().unwrap();
         let va = shared_vm_data.msr_bitmaps.as_ref() as *const _;
-        let pa = platform::ops().pa(va as *const _);
+        let pa = platform_ops::get().pa(va as *const _);
         vmwrite(vmcs::control::MSR_BITMAPS_ADDR_FULL, pa);
         vmwrite(vmcs::control::EPTP_FULL, shared_vm_data.epts.eptp().0);
     }
@@ -464,7 +464,7 @@ impl Vm {
 
         let shared_data = HV_SHARED_DATA.get().unwrap();
         let cr3 = if let Some(host_pt) = &shared_data.host_pt {
-            host_pt.ptr.as_ref() as *const crate::utils::paging_structures::PagingStructuresRaw
+            host_pt.ptr.as_ref() as *const crate::hypervisor::paging_structures::PagingStructuresRaw
                 as u64
         } else {
             cr3()
@@ -625,7 +625,7 @@ extern "efiapi" {
     /// Runs the VM until VM-exit occurs.
     fn run_vmx_vm(registers: &mut GuestRegisters) -> u64;
 }
-global_asm!(include_str!("../../utils/capture_registers.inc"));
+global_asm!(include_str!("../capture_registers.inc"));
 global_asm!(include_str!("run_vmx_vm.S"));
 
 #[allow(dead_code)]

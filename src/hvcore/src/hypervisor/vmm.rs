@@ -3,14 +3,10 @@ use x86::{
     cpuid::cpuid,
 };
 
-use crate::{
-    hypervisor::{
-        VmExitReason, HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS, OUR_HV_VENDOR_NAME,
-    },
-    utils::{
-        capture_registers::GuestRegisters,
-        x86_instructions::{cr4, cr4_write, rdmsr, wrmsr, xsetbv},
-    },
+use crate::hypervisor::{
+    capture_registers::GuestRegisters,
+    x86_instructions::{cr4, cr4_write, rdmsr, wrmsr, xsetbv},
+    VmExitReason, HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS, OUR_HV_VENDOR_NAME,
 };
 
 use crate::hypervisor::Extension;

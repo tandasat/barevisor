@@ -5,7 +5,7 @@ use alloc::{
 };
 use x86::{bits64::rflags::RFlags, current::paging::BASE_PAGE_SIZE, vmx::vmcs};
 
-use crate::utils::{platform, support::zeroed_box, x86_instructions::rdmsr};
+use crate::hypervisor::{platform_ops, support::zeroed_box, x86_instructions::rdmsr};
 
 #[derive(Default)]
 pub(crate) struct Vmcs {
@@ -52,7 +52,7 @@ const _: () = assert!(core::mem::size_of::<VmcsRaw>() == BASE_PAGE_SIZE);
 /// The wrapper of the VMCLEAR instruction.
 pub(crate) fn vmclear(vmcs_region: &mut VmcsRaw) {
     let va = vmcs_region as *const _;
-    let pa = platform::ops().pa(va as *const _);
+    let pa = platform_ops::get().pa(va as *const _);
 
     // Safety: this project runs at CPL0.
     unsafe { x86::bits64::vmx::vmclear(pa).unwrap() };
@@ -61,7 +61,7 @@ pub(crate) fn vmclear(vmcs_region: &mut VmcsRaw) {
 /// The wrapper of the VMPTRLD instruction.
 pub(crate) fn vmptrld(vmcs_region: &mut VmcsRaw) {
     let va = vmcs_region as *const _;
-    let pa = platform::ops().pa(va as *const _);
+    let pa = platform_ops::get().pa(va as *const _);
 
     // Safety: this project runs at CPL0.
     unsafe { x86::bits64::vmx::vmptrld(pa).unwrap() }
@@ -96,7 +96,10 @@ where
 pub(crate) fn vmx_succeed(flags: RFlags) -> Result<(), String> {
     if flags.contains(RFlags::FLAGS_ZF) {
         // See: 31.4 VM INSTRUCTION ERROR NUMBERS
-        Err(format!("VmFailValid with {}", vmread(vmcs::ro::VM_INSTRUCTION_ERROR)))
+        Err(format!(
+            "VmFailValid with {}",
+            vmread(vmcs::ro::VM_INSTRUCTION_ERROR)
+        ))
     } else if flags.contains(RFlags::FLAGS_CF) {
         Err("VmFailInvalid".to_string())
     } else {

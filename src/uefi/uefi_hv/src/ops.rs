@@ -14,7 +14,7 @@ impl UefiOps {
     }
 }
 
-impl hv::SystemOps for UefiOps {
+impl hv::PlatformOps for UefiOps {
     fn processor_count(&self) -> u32 {
         let bs = self.system_table.boot_services();
         let handle = bs.get_handle_for_protocol::<MpServices>().unwrap();

@@ -6,7 +6,7 @@ use x86::{
     current::paging::{BASE_PAGE_SHIFT, LARGE_PAGE_SIZE},
 };
 
-use super::{platform, support::zeroed_box};
+use super::{platform_ops, support::zeroed_box};
 
 #[derive(Debug, Clone)]
 pub struct NestedPageTables {
@@ -48,7 +48,7 @@ impl NestedPageTables {
             pfn += BASE_PAGE_SIZE as u64;
         }
 
-        let pt_pa = platform::ops().pa(pt as *mut _ as _);
+        let pt_pa = platform_ops::get().pa(pt as *mut _ as _);
         pde.set_pfn(pt_pa >> BASE_PAGE_SHIFT);
 
         pde.set_present(true);
@@ -100,7 +100,7 @@ pub struct PagingStructuresRaw {
 }
 
 fn build_identity_(ps: &mut PagingStructuresRaw, npt: bool) {
-    let ops = platform::ops();
+    let ops = platform_ops::get();
     let user = npt;
 
     let pml4 = &mut ps.pml4;

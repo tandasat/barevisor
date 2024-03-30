@@ -4,7 +4,7 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use x86::current::paging::BASE_PAGE_SHIFT;
 
-use crate::utils::x86_instructions::rdmsr;
+use crate::hypervisor::x86_instructions::rdmsr;
 
 #[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
 pub(crate) enum MemoryType {
@@ -256,7 +256,10 @@ impl RawMtrrs {
         let default_type = rdmsr(x86::msr::IA32_MTRR_DEF_TYPE);
 
         // FIXME: return Result<>
-        assert!((default_type & IA32_MTRR_DEF_TYPE_MTRR_ENABLE_FLAG) != 0, "MTRRs not enabled");
+        assert!(
+            (default_type & IA32_MTRR_DEF_TYPE_MTRR_ENABLE_FLAG) != 0,
+            "MTRRs not enabled"
+        );
         assert!(
             (default_type & IA32_MTRR_DEF_TYPE_FIXED_RANGE_MTRR_ENABLE_FLAG) != 0,
             "Fixed range MTRRs not enabled"

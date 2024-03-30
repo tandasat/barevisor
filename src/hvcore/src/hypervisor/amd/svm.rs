@@ -18,14 +18,14 @@ use x86::{
 
 use crate::{
     hypervisor::{
-        cpu_id_from, Extension, InstrInterceptionQualification, VirtualMachine, VmExitReason,
-        HV_SHARED_DATA,
-    },
-    utils::{
         capture_registers::GuestRegisters,
         paging_structures::NestedPageTables,
-        platform,
+        platform_ops,
         x86_instructions::{cr0, cr3, cr4, rdmsr, sgdt, sidt, wrmsr},
+    },
+    hypervisor::{
+        cpu_id_from, Extension, InstrInterceptionQualification, VirtualMachine, VmExitReason,
+        HV_SHARED_DATA,
     },
 };
 
@@ -112,8 +112,8 @@ impl VirtualMachine for Vm {
             ..Default::default()
         };
 
-        vm.vmcb_pa = platform::ops().pa(addr_of!(*vm.vmcb) as _);
-        vm.host_vmcb_pa = platform::ops().pa(addr_of!(*vm.host_vmcb) as _);
+        vm.vmcb_pa = platform_ops::get().pa(addr_of!(*vm.vmcb) as _);
+        vm.host_vmcb_pa = platform_ops::get().pa(addr_of!(*vm.host_vmcb) as _);
         if cfg!(feature = "uefi") && vm.id == 0 {
             vm.intercept_apic_write(true);
         }
@@ -130,7 +130,7 @@ impl VirtualMachine for Vm {
         //  the host state-save area in main memory at the physical address
         //  specified in the VM_HSAVE_PA MSR".
         // See: 15.5.1 Basic Operation
-        let pa = platform::ops().pa(addr_of!(*self.host_state) as _);
+        let pa = platform_ops::get().pa(addr_of!(*self.host_state) as _);
         wrmsr(SVM_MSR_VM_HSAVE_PA, pa);
     }
 
@@ -452,7 +452,7 @@ impl Vm {
         let shared_vm_data = SHARED_VM_DATA.get().unwrap();
         let nested_pml4_addr = shared_vm_data.npt.read().ptr.as_ref() as *const _;
         self.vmcb.control_area.np_enable = SVM_NP_ENABLE_NP_ENABLE;
-        self.vmcb.control_area.ncr3 = platform::ops().pa(nested_pml4_addr as _);
+        self.vmcb.control_area.ncr3 = platform_ops::get().pa(nested_pml4_addr as _);
 
         // Convert #INIT to #SX. One cannot simply intercept #INIT because even
         // if we do, #INIT is still pending and will be delivered anyway.
@@ -504,7 +504,7 @@ impl Vm {
 
     fn initialize_host(&mut self) {
         let shared_data = HV_SHARED_DATA.get().unwrap();
-        let ops = platform::ops();
+        let ops = platform_ops::get();
 
         if let Some(host_pt) = &shared_data.host_pt {
             let pml4 = host_pt.ptr.as_ref() as *const _;
@@ -710,7 +710,7 @@ extern "efiapi" {
     /// Saves registers to VMCS
     fn asm_vmsave(vmcb_pa: u64);
 }
-global_asm!(include_str!("../../utils/capture_registers.inc"));
+global_asm!(include_str!("../capture_registers.inc"));
 global_asm!(include_str!("svm_run_vm.S"));
 
 /// Returns the access rights of the given segment for SVM.

@@ -3,21 +3,30 @@ mod intel;
 mod switch_stack;
 mod vmm;
 
+pub mod capture_registers;
+pub mod gdt_tss;
+pub mod paging_structures;
+pub mod panic;
+pub mod platform_ops;
+pub mod segment;
+pub mod support;
+pub mod x86_instructions;
+
 use core::sync::atomic::{AtomicU8, Ordering};
 
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 use spin::{Once, RwLock};
 use x86::cpuid::cpuid;
 
-use crate::utils::{
-    self, capture_registers::GuestRegisters, paging_structures::PagingStructures, platform,
+use crate::hypervisor::{
+    self, capture_registers::GuestRegisters, paging_structures::PagingStructures,
 };
 
 #[derive(Debug, Default)]
 pub struct SharedData {
     pub host_pt: Option<PagingStructures>,
     pub host_idt: Option<Box<u64>>,
-    pub host_gdt_and_tss: Option<Vec<Box<utils::gdt_tss::GdtTss>>>,
+    pub host_gdt_and_tss: Option<Vec<Box<hypervisor::gdt_tss::GdtTss>>>,
 }
 
 /// A collection of data that the hypervisor depends on for its entire lifespan.
@@ -55,7 +64,7 @@ pub fn virtualize_system(hv_data: SharedData) {
     init_logger(log::LevelFilter::Debug);
     log::info!("Virtualizing the all processors");
 
-    platform::ops().run_on_all_processors(|| {
+    platform_ops::get().run_on_all_processors(|| {
         let mut map = APIC_ID_MAP.write();
         assert!(map
             .insert(apic_id(), PROCESSOR_COUNT.fetch_add(1, Ordering::Relaxed))
@@ -64,7 +73,7 @@ pub fn virtualize_system(hv_data: SharedData) {
 
     let _ = HV_SHARED_DATA.call_once(|| hv_data);
 
-    platform::ops().run_on_all_processors(|| {
+    platform_ops::get().run_on_all_processors(|| {
         let regs = GuestRegisters::new();
         if !is_our_hypervisor_present() {
             let params = vmm::VCpuParameters {
