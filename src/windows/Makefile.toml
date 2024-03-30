@@ -1,0 +1,22 @@
+# https://sagiegurari.github.io/cargo-make
+
+extend = "target/rust-driver-makefile.toml"
+
+[env]
+CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = ["xtask", "check_hv_vendor"]
+
+[config]
+load_script = '''
+#!@rust
+//! ```cargo
+//! [dependencies]
+//! wdk-build = "0.2.0"
+//! ```
+#![allow(unused_doc_comments)]
+
+wdk_build::cargo_make::load_rust_driver_makefile()?
+'''
+
+[tasks.default]
+clear = true
+dependencies = ["sign-sys"]

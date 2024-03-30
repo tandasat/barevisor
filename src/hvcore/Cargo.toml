@@ -1,0 +1,36 @@
+[package]
+name = "hv"
+version = "0.1.0"
+edition = "2021"
+#edition.workspace = true
+#publish.workspace = true
+#license.workspace = true
+
+[dependencies]
+thiserror-no-std = "2.0"
+bitfield = "0.14" # get rid of this?
+bit_field = "0.10" # more popular!
+log = { version = "0.4", default-features = false }
+spin = "0.9"
+x86 = "0.52"# TODO: get rid of this crap
+x86_64 = { version = "0.15", features = [
+    "instructions",
+], default-features = false } # TODO: get rid of this crap
+com_logger = "0.1"
+derivative = { version = "2.2", features = ["use_core"] }
+num-derive = { version = "0.4", default-features = false }
+num-traits = { version = "0.2", default-features = false }
+
+[dev-dependencies]
+env_logger = "0.11"
+
+#[lints]
+#workspace = true
+
+
+[features]
+# TBD
+default = []
+
+# Supports being loaded as a UEFI module.
+uefi = []

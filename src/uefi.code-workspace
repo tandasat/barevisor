@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "uefi"
+		},
+		{
+			"path": "hvcore"
+		}
+	],
+	"settings": {}
+}

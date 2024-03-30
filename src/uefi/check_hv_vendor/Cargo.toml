@@ -1,0 +1,19 @@
+[package]
+name = "check_hv_vendor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+
+[dependencies]
+uefi = { version = "0.27", default-features = false }
+uefi-services = { version = "0.24", default-features = false }
+raw-cpuid = "11.0"
+
+[lints]
+workspace = true
