@@ -2,7 +2,6 @@ use super::vmm::Architecture;
 
 mod epts;
 mod mtrr;
-mod vmcs;
 mod vmx;
 
 pub(crate) struct Intel;

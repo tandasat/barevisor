@@ -18,13 +18,13 @@ use x86::{
 
 use crate::hypervisor::{
     capture_registers::GuestRegisters,
-    cpu_id_from,
-    paging_structures::NestedPageTables,
-    platform_ops,
+    cpu_id_from, platform_ops,
     vmm::{Extension, InstrInterceptionQualification, VirtualMachine, VmExitReason},
     x86_instructions::{cr0, cr3, cr4, rdmsr, sgdt, sidt, wrmsr},
     HV_SHARED_DATA,
 };
+
+use super::npts::NestedPageTables;
 
 struct SharedVmData {
     npt: RwLock<NestedPageTables>,

@@ -1,5 +1,6 @@
 use super::vmm::Architecture;
 
+mod npts;
 mod svm;
 
 pub(crate) struct Amd;
