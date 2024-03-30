@@ -1,13 +1,10 @@
 use x86::{
     controlregs::{Cr4, Xcr0},
     cpuid::cpuid,
-    vmx::vmcs,
 };
 
 use crate::{
     hypervisor::{
-        init::handle_init_signal,
-        intel::vmcs::{vmread, vmwrite},
         VmExitReason, HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS, OUR_HV_VENDOR_NAME,
     },
     utils::{
@@ -53,8 +50,6 @@ fn virtualize_core<T: super::Architecture>(params: &VCpuParameters) -> ! {
             VmExitReason::Rdmsr(info) => handle_rdmsr(vm, &info),
             VmExitReason::Wrmsr(info) => handle_wrmsr(vm, &info),
             VmExitReason::XSetBv(info) => handle_xsetbv(vm, &info),
-            VmExitReason::Init => handle_init_signal(vm),
-            VmExitReason::Sipi => handle_sipi_signal(vm),
             VmExitReason::NothingToDo => {}
         }
     }
@@ -117,37 +112,4 @@ fn handle_xsetbv<T: VirtualMachine>(vm: &mut T, info: &InstrInterceptionQualific
     xsetbv(xcr, value);
 
     regs.rip = info.next_rip;
-}
-
-/// Represents the activity state of a logical processor in VMX operation.
-#[allow(dead_code)]
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(crate) enum GuestActivityState {
-    /// The logical processor is executing instructions normally.
-    Active = 0x00000000,
-
-    /// The logical processor is inactive because it executed the HLT instruction.
-    Hlt = 0x00000001,
-
-    /// The logical processor is inactive because it incurred a triple fault
-    /// or some other serious error.
-    Shutdown = 0x00000002,
-
-    /// The logical processor is inactive because it is waiting for a startup-IPI (SIPI).
-    WaitForSipi = 0x00000003,
-}
-
-fn handle_sipi_signal<T: VirtualMachine>(vm: &mut T) {
-    let vector = vmread(vmcs::ro::EXIT_QUALIFICATION);
-
-    vmwrite(vmcs::guest::CS_SELECTOR, vector << 8);
-    vmwrite(vmcs::guest::CS_BASE, vector << 12);
-    vm.regs().rip = 0;
-    vmwrite(vmcs::guest::RIP, vm.regs().rip);
-
-    vmwrite(
-        vmcs::guest::ACTIVITY_STATE,
-        GuestActivityState::Active as u32,
-    );
 }

@@ -1,5 +1,4 @@
 mod amd;
-mod init;
 mod intel;
 mod switch_stack;
 mod vmm;
@@ -128,7 +127,5 @@ pub(crate) enum VmExitReason {
     Rdmsr(InstrInterceptionQualification),
     Wrmsr(InstrInterceptionQualification),
     XSetBv(InstrInterceptionQualification),
-    Init,
-    Sipi,
     NothingToDo,
 }
