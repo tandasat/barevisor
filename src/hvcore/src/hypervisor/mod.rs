@@ -35,7 +35,7 @@ pub struct SharedData {
 static HV_SHARED_DATA: Once<SharedData> = Once::new();
 
 pub fn virtualize_system(hv_data: SharedData) {
-    init_logger(log::LevelFilter::Debug);
+    init_logger(log::LevelFilter::Info);
     log::info!("Virtualizing the all processors");
 
     apic_id::init();
@@ -59,13 +59,15 @@ pub fn virtualize_system(hv_data: SharedData) {
 
 const HV_CPUID_VENDOR_AND_MAX_FUNCTIONS: u32 = 0x4000_0000;
 const HV_CPUID_INTERFACE: u32 = 0x4000_0001;
-const OUR_HV_VENDOR_NAME: u32 = 0x214d_4d56; // "VMM!"
+const OUR_HV_VENDOR_NAME_EBX: u32 = 0x6572_6142; // "Bare"
+const OUR_HV_VENDOR_NAME_ECX: u32 = 0x6F73_6976; // "viso"
+const OUR_HV_VENDOR_NAME_EDX: u32 = 0x2020_2172; // "r!  "
 
 fn is_our_hypervisor_present() -> bool {
     let regs = cpuid!(HV_CPUID_VENDOR_AND_MAX_FUNCTIONS);
-    (regs.ebx == OUR_HV_VENDOR_NAME)
-        && (regs.ecx == OUR_HV_VENDOR_NAME)
-        && (regs.edx == OUR_HV_VENDOR_NAME)
+    (regs.ebx == OUR_HV_VENDOR_NAME_EBX)
+        && (regs.ecx == OUR_HV_VENDOR_NAME_ECX)
+        && (regs.edx == OUR_HV_VENDOR_NAME_EDX)
 }
 
 #[cfg(test)]

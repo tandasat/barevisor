@@ -66,7 +66,6 @@ impl TestVm for Vmware {
         } else {
             //format!("./tests/samples/vmware/NoOS_{}.vmx", env::consts::OS)
             r"C:\Users\tanda\Documents\Virtual Machines\Class_Windows\Class_Windows.vmx".to_string()
-            //r"C:\Users\tanda\Documents\Virtual Machines\Windows 10 x64\Windows 10 x64.vmx".to_string()
         };
 
         // Stop the VM if requested. This is best effort and failures are ignored.

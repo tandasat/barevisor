@@ -6,7 +6,8 @@ use x86::{
 use crate::hypervisor::{
     capture_registers::GuestRegisters,
     x86_instructions::{cr4, cr4_write, rdmsr, wrmsr, xsetbv},
-    HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS, OUR_HV_VENDOR_NAME,
+    HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS, OUR_HV_VENDOR_NAME_EBX,
+    OUR_HV_VENDOR_NAME_ECX, OUR_HV_VENDOR_NAME_EDX,
 };
 
 use super::{amd::Amd, intel::Intel};
@@ -89,9 +90,9 @@ fn handle_cpuid<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
 
     // Indicate that the hypervisor is present relevant CPUID is asked.
     if leaf == HV_CPUID_VENDOR_AND_MAX_FUNCTIONS {
-        regs.ebx = OUR_HV_VENDOR_NAME;
-        regs.ecx = OUR_HV_VENDOR_NAME;
-        regs.edx = OUR_HV_VENDOR_NAME;
+        regs.ebx = OUR_HV_VENDOR_NAME_EBX;
+        regs.ecx = OUR_HV_VENDOR_NAME_ECX;
+        regs.edx = OUR_HV_VENDOR_NAME_EDX;
     } else if leaf == 1 {
         // CPUID.1.ECX[5] indicates if VT-x is supported. Clear this on this
         // processor to prevent other hypervisor tries to use it.

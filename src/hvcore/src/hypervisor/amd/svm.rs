@@ -36,6 +36,7 @@ static SHARED_VM_DATA: Once<SharedVmData> = Once::new();
 
 impl SharedVmData {
     fn new() -> Self {
+        #[allow(clippy::declare_interior_mutable_const)]
         const ARRAY_REPEAT_VALUE: AtomicU16 = AtomicU16::new(u16::MAX);
         let sipi_vectors = [ARRAY_REPEAT_VALUE; 0xff];
 
@@ -226,7 +227,7 @@ impl Vm {
         const EFER_SVME: u64 = 1 << 12;
 
         assert!(self.id != 0);
-        log::info!("INIT");
+        log::trace!("INIT");
 
         // Extension Type
         // Not Write-through
@@ -323,7 +324,7 @@ impl Vm {
     fn handle_sipi(&mut self, vector: u8) {
         assert!(self.id != 0);
         assert!(self.activity_state == GuestActivityState::WaitForSipi);
-        log::info!("SIPI vector {vector:#x?}");
+        log::trace!("SIPI vector {vector:#x?}");
 
         self.vmcb.state_save_area.cs_selector = (vector as u16) << 8;
         self.vmcb.state_save_area.cs_base = (vector as u64) << 12;
@@ -527,16 +528,16 @@ impl Vm {
         if let Some(host_pt) = &shared_data.host_pt {
             let pml4 = host_pt.ptr.as_ref() as *const _;
             unsafe { cr3_write(ops.pa(pml4 as _)) };
-            log::info!("Updated CR3");
+            log::debug!("Updated CR3");
         }
 
         if let Some(host_gdt_and_tss) = &shared_data.host_gdt_and_tss {
             host_gdt_and_tss[self.id].apply().unwrap();
-            log::info!("Updated GDTR");
+            log::debug!("Updated GDTR");
         }
 
         if let Some(_host_idt) = &shared_data.host_idt {
-            log::info!("Updated IDTR");
+            log::debug!("Updated IDTR");
             unimplemented!();
         }
 
