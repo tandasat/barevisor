@@ -18,8 +18,8 @@ use x86::{
 
 use crate::hypervisor::{
     capture_registers::GuestRegisters,
-    cpu_id_from, platform_ops,
-    vmm::{Extension, InstrInterceptionQualification, VirtualMachine, VmExitReason},
+    platform_ops, processor_id_from,
+    vmm::{Extension, InstructionInfo, VirtualMachine, VmExitReason},
     x86_instructions::{cr0, cr3, cr4, rdmsr, sgdt, sidt, wrmsr},
     HV_SHARED_DATA,
 };
@@ -185,7 +185,7 @@ impl VirtualMachine for Vm {
                 self.handle_nested_page_fault();
                 VmExitReason::NestedPageFault
             }
-            VMEXIT_CPUID => VmExitReason::Cpuid(InstrInterceptionQualification {
+            VMEXIT_CPUID => VmExitReason::Cpuid(InstructionInfo {
                 next_rip: self.vmcb.control_area.nrip,
             }),
             _ => {
@@ -414,7 +414,7 @@ impl Vm {
                 let destination = icr_high_value.get_bits(24..=31) as u8;
                 log::info!("SIPI to {destination} {icr_high_value:#x?}  : {value:#x?}");
                 let vector = value.get_bits(0..=7) as u8;
-                let cpu_id = cpu_id_from(destination).unwrap();
+                let cpu_id = processor_id_from(destination).unwrap();
 
                 let shared_vm_data = SHARED_VM_DATA.get().unwrap();
                 let sipi_vector = &shared_vm_data.sipi_vectors[cpu_id as usize];

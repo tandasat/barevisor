@@ -3,7 +3,8 @@ use core::alloc::Layout;
 use alloc::{alloc::handle_alloc_error, boxed::Box};
 use x86::bits64::paging::BASE_PAGE_SIZE;
 
-pub fn zeroed_box<T>() -> Box<T> {
+/// Returns zero-initialized Box of `T` without using stack during construction.
+pub(crate) fn zeroed_box<T>() -> Box<T> {
     let layout = Layout::new::<T>();
     let ptr = unsafe { alloc::alloc::alloc_zeroed(layout) }.cast::<T>();
     if ptr.is_null() {

@@ -4,7 +4,7 @@ use x86::controlregs::{Cr0, Cr4};
 use crate::hypervisor::{
     platform_ops,
     support::zeroed_box,
-    vmm::{Extension, InstrInterceptionQualification, VirtualMachine, VmExitReason},
+    vmm::{Extension, InstructionInfo, VirtualMachine, VmExitReason},
     x86_instructions::{cr0, cr0_write, cr4, cr4_write, rdmsr, wrmsr},
 };
 
@@ -251,16 +251,16 @@ impl VirtualMachine for Vm {
                 self.handle_sipi_signal();
                 VmExitReason::StartupIpi
             }
-            VMX_EXIT_REASON_CPUID => VmExitReason::Cpuid(InstrInterceptionQualification {
+            VMX_EXIT_REASON_CPUID => VmExitReason::Cpuid(InstructionInfo {
                 next_rip: self.regs.rip + vmread(vmcs::ro::VMEXIT_INSTRUCTION_LEN),
             }),
-            VMX_EXIT_REASON_RDMSR => VmExitReason::Rdmsr(InstrInterceptionQualification {
+            VMX_EXIT_REASON_RDMSR => VmExitReason::Rdmsr(InstructionInfo {
                 next_rip: self.regs.rip + vmread(vmcs::ro::VMEXIT_INSTRUCTION_LEN),
             }),
-            VMX_EXIT_REASON_WRMSR => VmExitReason::Wrmsr(InstrInterceptionQualification {
+            VMX_EXIT_REASON_WRMSR => VmExitReason::Wrmsr(InstructionInfo {
                 next_rip: self.regs.rip + vmread(vmcs::ro::VMEXIT_INSTRUCTION_LEN),
             }),
-            VMX_EXIT_REASON_XSETBV => VmExitReason::XSetBv(InstrInterceptionQualification {
+            VMX_EXIT_REASON_XSETBV => VmExitReason::XSetBv(InstructionInfo {
                 next_rip: self.regs.rip + vmread(vmcs::ro::VMEXIT_INSTRUCTION_LEN),
             }),
             _ => {

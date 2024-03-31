@@ -1,5 +1,5 @@
 mod amd;
-mod apic;
+mod apic_id;
 mod capture_registers;
 pub mod gdt_tss;
 mod intel;
@@ -12,50 +12,40 @@ mod switch_stack;
 mod vmm;
 mod x86_instructions;
 
-use core::sync::atomic::{AtomicU8, Ordering};
-
 use alloc::{boxed::Box, vec::Vec};
 use spin::Once;
 use x86::cpuid::cpuid;
 
-use crate::hypervisor::{
-    self,
-    apic::{apic_id, cpu_id_from, APIC_ID_MAP},
-    capture_registers::GuestRegisters,
-    paging_structures::PagingStructures,
+use crate::{
+    hypervisor::{
+        apic_id::processor_id_from, capture_registers::GuestRegisters,
+        paging_structures::PagingStructures,
+    },
+    GdtTss,
 };
 
 #[derive(Debug, Default)]
 pub struct SharedData {
     pub host_pt: Option<PagingStructures>,
     pub host_idt: Option<Box<u64>>,
-    pub host_gdt_and_tss: Option<Vec<Box<hypervisor::gdt_tss::GdtTss>>>,
+    pub host_gdt_and_tss: Option<Vec<Box<GdtTss>>>,
 }
 
 /// A collection of data that the hypervisor depends on for its entire lifespan.
-pub(crate) static HV_SHARED_DATA: Once<SharedData> = Once::new();
+static HV_SHARED_DATA: Once<SharedData> = Once::new();
 
-static PROCESSOR_COUNT: AtomicU8 = AtomicU8::new(0);
-
-// TODO: consider making it generic <T: SystemOps> instead of Box<dyn SystemOps>.
 pub fn virtualize_system(hv_data: SharedData) {
     init_logger(log::LevelFilter::Debug);
     log::info!("Virtualizing the all processors");
 
-    platform_ops::get().run_on_all_processors(|| {
-        let mut map = APIC_ID_MAP.write();
-        assert!(map
-            .insert(apic_id(), PROCESSOR_COUNT.fetch_add(1, Ordering::Relaxed))
-            .is_none());
-    });
-
+    apic_id::init();
     let _ = HV_SHARED_DATA.call_once(|| hv_data);
 
     platform_ops::get().run_on_all_processors(|| {
         let regs = GuestRegisters::new();
         if !is_our_hypervisor_present() {
             let params = vmm::VCpuParameters {
-                processor_id: cpu_id_from(apic_id()).unwrap(),
+                processor_id: processor_id_from(apic_id::get()).unwrap(),
                 regs,
             };
             log::info!("Virtualizing the processor {}", params.processor_id);

@@ -28,15 +28,15 @@ pub(crate) trait VirtualMachine {
     fn regs(&mut self) -> &mut GuestRegisters;
 }
 
-pub(crate) struct InstrInterceptionQualification {
+pub(crate) struct InstructionInfo {
     pub(crate) next_rip: u64,
 }
 
 pub(crate) enum VmExitReason {
-    Cpuid(InstrInterceptionQualification),
-    Rdmsr(InstrInterceptionQualification),
-    Wrmsr(InstrInterceptionQualification),
-    XSetBv(InstrInterceptionQualification),
+    Cpuid(InstructionInfo),
+    Rdmsr(InstructionInfo),
+    Wrmsr(InstructionInfo),
+    XSetBv(InstructionInfo),
     InitSignal,
     StartupIpi,
     NestedPageFault,
@@ -81,7 +81,7 @@ fn virtualize_core<T: Architecture>(params: &VCpuParameters) -> ! {
     }
 }
 
-fn handle_cpuid<T: VirtualMachine>(vm: &mut T, info: &InstrInterceptionQualification) {
+fn handle_cpuid<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
     let leaf = vm.regs().rax as u32;
     let sub_leaf = vm.regs().rcx as u32;
     log::trace!("CPUID {leaf:#x?} {sub_leaf:#x?}");
@@ -108,7 +108,7 @@ fn handle_cpuid<T: VirtualMachine>(vm: &mut T, info: &InstrInterceptionQualifica
     vm.regs().rip = info.next_rip;
 }
 
-fn handle_rdmsr<T: VirtualMachine>(vm: &mut T, info: &InstrInterceptionQualification) {
+fn handle_rdmsr<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
     let msr = vm.regs().rcx as u32;
     log::trace!("RDMSR {msr:#x?}");
     let value = rdmsr(msr);
@@ -118,7 +118,7 @@ fn handle_rdmsr<T: VirtualMachine>(vm: &mut T, info: &InstrInterceptionQualifica
     vm.regs().rip = info.next_rip;
 }
 
-fn handle_wrmsr<T: VirtualMachine>(vm: &mut T, info: &InstrInterceptionQualification) {
+fn handle_wrmsr<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
     let msr = vm.regs().rcx as u32;
     let value = (vm.regs().rax & 0xffff_ffff) | ((vm.regs().rdx & 0xffff_ffff) << 32);
     log::trace!("WRMSR {msr:#x?} {value:#x?}");
@@ -127,7 +127,7 @@ fn handle_wrmsr<T: VirtualMachine>(vm: &mut T, info: &InstrInterceptionQualifica
     vm.regs().rip = info.next_rip;
 }
 
-fn handle_xsetbv<T: VirtualMachine>(vm: &mut T, info: &InstrInterceptionQualification) {
+fn handle_xsetbv<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
     let regs = vm.regs();
     let xcr: u32 = regs.rcx as u32;
     let value = (regs.rax & 0xffff_ffff) | ((regs.rdx & 0xffff_ffff) << 32);

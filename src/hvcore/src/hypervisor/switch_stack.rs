@@ -3,10 +3,12 @@ use core::{alloc::Layout, arch::global_asm};
 
 use crate::hypervisor::support::Page;
 
+use super::vmm::VCpuParameters;
+
 /// Installs the hypervisor on the current processor.
 pub(crate) fn jump_with_new_stack(
-    params: &super::vmm::VCpuParameters,
-    destination: fn(&super::vmm::VCpuParameters) -> !,
+    params: &VCpuParameters,
+    destination: fn(&VCpuParameters) -> !,
 ) -> ! {
     // Allocate separate stack space. This is never freed.
     let layout = Layout::array::<Page>(0x10).unwrap();
@@ -20,8 +22,17 @@ pub(crate) fn jump_with_new_stack(
     unsafe { switch_stack(params, destination as *const () as _, stack_base) };
 }
 
+// TOOD: consider `extern "C"` or something more generic. No need to be efiapi at all
 extern "efiapi" {
     /// Jumps to the landing code with the new stack pointer.
-    fn switch_stack(regs: &super::vmm::VCpuParameters, landing_code: usize, stack_base: u64) -> !;
+    fn switch_stack(regs: &VCpuParameters, landing_code: usize, stack_base: u64) -> !;
 }
-global_asm!(include_str!("switch_stack.S"));
+global_asm!(
+    r#"
+    .global switch_stack
+    switch_stack:
+        xchg    bx, bx
+        mov     rsp, r8
+        jmp     rdx
+"#
+);
