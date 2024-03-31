@@ -335,8 +335,8 @@ impl Vm {
 
         // SS reported as 0x0 on VMware time to time. What the heck?
         let ss = ss();
-        log::warn!("{:x}", ss.bits());
         let ss = if ss.bits() == 0 {
+            log::warn!("{:x}", ss.bits());
             SegmentSelector::from_raw(0x18)
         } else {
             ss

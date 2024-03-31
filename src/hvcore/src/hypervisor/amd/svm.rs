@@ -355,76 +355,97 @@ impl Vm {
         let instructions = unsafe {
             core::slice::from_raw_parts(
                 self.vmcb.control_area.guest_instruction_bytes.as_ptr(),
-                self.vmcb.control_area.num_of_bytes_fetched as usize,
+                self.vmcb.control_area.num_of_bytes_fetched as _,
             )
         };
-        // 0x300 = Interrupt Command Register Low
-        // 0x310 = Interrupt Command Register High
 
-        // Figure 16-18. Interrupt Command Register (APIC Offset 300h–310h)
+        let (value, dest_linear_addr) = match instructions {
+            [0x45, 0x89, 0x65, 0x00, ..] => {
+                // MOV DWORD PTR [R13+00],R12D
+                self.registers.rip += 4;
+                let dest_linear_addr = self.registers.r13;
+                let value = self.registers.r12 as u32;
+                (value, dest_linear_addr)
+            }
+            [0x41, 0x89, 0x14, 0x00, ..] => {
+                // MOV DWORD PTR [R8+RAX],EDX
+                self.registers.rip += 4;
+                let dest_linear_addr = self.registers.r8 + self.registers.rax;
+                let value = self.registers.rdx as u32;
+                (value, dest_linear_addr)
+            }
+            [0xc7, 0x81, 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, ..] => {
+                // MOV DWORD PTR [RCX+000000B0],00000000
+                self.registers.rip += 10;
+                let dest_linear_addr = self.registers.rcx + 0xb0;
+                let value = 0u32;
+                (value, dest_linear_addr)
+            }
+            [0x89, 0x90, 0x00, 0x03, 0x00, 0x00, ..] => {
+                // MOV DWORD PTR [RAX+00000300],EDX
+                self.registers.rip += 6;
+                let dest_linear_addr = self.registers.rax + 0x300;
+                let value = self.registers.rdx as u32;
+                (value, dest_linear_addr)
+            }
+            [0x89, 0x88, 0x10, 0x03, 0x00, 0x00, ..] => {
+                // MOV DWORD PTR [RAX+00000310],ECX
+                self.registers.rip += 6;
+                let dest_linear_addr = self.registers.rax + 0x310;
+                let value = self.registers.rcx as u32;
+                (value, dest_linear_addr)
+            }
+            _ => {
+                log::error!("{:#x?}", self.registers);
+                panic!("Unhandled APIC access instructions: {:02x?}", instructions);
+            }
+        };
 
         let faulting_gpa = self.vmcb.control_area.exit_info2;
         let apic_register = faulting_gpa & 0xfff;
+        let message_type = value.get_bits(8..=10);
+        log::trace!("VA:{dest_linear_addr:#x} / PA:{faulting_gpa:#x} <= {value:#x}");
 
-        let (value, dest_linear_addr) = if instructions.starts_with(&[0x45, 0x89, 0x65, 0x00]) {
-            // MOV DWORD PTR [R13+00],R12D
-            let dest_linear_addr = self.registers.r13;
-            let value = self.registers.r12 as u32;
-            self.registers.rip += 4;
-            (value, dest_linear_addr)
-        } else if instructions.starts_with(&[0x41, 0x89, 0x14, 0x00]) {
-            // MOV DWORD PTR [R8+RAX],EDX
-            let dest_linear_addr = self.registers.r8 + self.registers.rax;
-            let value = self.registers.rdx as u32;
-            self.registers.rip += 4;
-            (value, dest_linear_addr)
-        } else if instructions
-            .starts_with(&[0xc7, 0x81, 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
-        {
-            // MOV DWORD PTR [RCX+000000B0],00000000
-            let dest_linear_addr = self.registers.rcx + 0xb0;
-            let value = 0u32;
-            self.registers.rip += 10;
-            (value, dest_linear_addr)
-        } else if instructions.starts_with(&[0x89, 0x90, 0x00, 0x03, 0x00, 0x00]) {
-            // MOV DWORD PTR [RAX+00000300],EDX
-            let dest_linear_addr = self.registers.rax + 0x300;
-            let value = self.registers.rdx as u32;
-            self.registers.rip += 6;
-            (value, dest_linear_addr)
-        } else if instructions.starts_with(&[0x89, 0x88, 0x10, 0x03, 0x00, 0x00]) {
-            // MOV DWORD PTR [RAX+00000310],ECX
-            let dest_linear_addr = self.registers.rax + 0x310;
-            let value = self.registers.rcx as u32;
-            self.registers.rip += 6;
-            (value, dest_linear_addr)
-        } else {
-            log::info!("{:02x?}", instructions);
-            log::info!("{:#x?}", self.registers);
-            panic!();
-        };
-        if apic_register == 0x300 {
-            let message_type = value.get_bits(8..=10);
-            // is SIPI
-            if message_type == 0b110 {
-                assert!(value.get_bit(11) == false); // Destination Mode must be Physical
-                assert!(value.get_bits(18..=19) == 0b00); // Destination Shorthand must be Destination
-                let icr_high_addr = (faulting_gpa & !0xfff) | 0x310;
-                let icr_high_value = unsafe { *(icr_high_addr as *mut u32) };
-                let destination = icr_high_value.get_bits(24..=31) as u8;
-                log::info!("SIPI to {destination} {icr_high_value:#x?}  : {value:#x?}");
-                let vector = value.get_bits(0..=7) as u8;
-                let cpu_id = processor_id_from(destination).unwrap();
-
-                let shared_vm_data = SHARED_VM_DATA.get().unwrap();
-                let sipi_vector = &shared_vm_data.sipi_vectors[cpu_id as usize];
-                assert!(sipi_vector.swap(vector as _, Ordering::Relaxed) == u16::MAX);
-                return;
-            }
+        // If the faulting access is not because of sending Startup IPI (0b110)
+        // via the Interrupt Command Register Low (0x300), do the write access
+        // the guest wanted to do and bail out.
+        if !(apic_register == 0x300 && message_type == 0b110) {
+            // Safety: GPA is same as PA in our NTPs, and the faulting address
+            // is always the local APIC page, which is writable in the host
+            // address space.
+            unsafe { *(faulting_gpa as *mut u32) = value };
+            return;
         }
 
-        log::trace!("VA:{dest_linear_addr:#x} / PA:{faulting_gpa:#x} <= {value:#x}");
-        unsafe { *(faulting_gpa as *mut u32) = value };
+        // The BSP is trying to send Startup IPI. This must not be allowed because
+        // SVM does not intercept it or deliver #VMEXIT. We need to prevent the
+        // BSP from sending it and emulate the effect in software instead.
+
+        // Figure 16-18. Interrupt Command Register (APIC Offset 300h–310h)
+        assert!(!value.get_bit(11), "Destination Mode must be 'Physical'");
+        assert!(
+            value.get_bits(18..=19) == 0b00,
+            "Destination Shorthand must be 'Destination'"
+        );
+
+        // Safety: GPA is same as PA in our NTPs, and the faulting address
+        // is always the local APIC page, which is writable in the host
+        // address space.
+        let icr_high_addr = (faulting_gpa & !0xfff) | 0x310;
+        let icr_high_value = unsafe { *(icr_high_addr as *mut u32) };
+
+        // Collect necessary bits to emulate, that is, vector and destination.
+        let vector = value.get_bits(0..=7) as u8;
+        let apic_id = icr_high_value.get_bits(24..=31) as u8;
+        let processor_id = processor_id_from(apic_id).unwrap() as usize;
+        log::info!("SIPI to {apic_id} with vector {vector:#x?}");
+
+        // Update the global object with the obtained vector value. APs should
+        // be spinning based on this value and exit the spin once we update the
+        // value here.
+        let shared_vm_data = SHARED_VM_DATA.get().unwrap();
+        let sipi_vector = &shared_vm_data.sipi_vectors[processor_id];
+        assert!(sipi_vector.swap(vector as _, Ordering::Relaxed) == u16::MAX);
     }
 
     fn initialize_control(&mut self) {

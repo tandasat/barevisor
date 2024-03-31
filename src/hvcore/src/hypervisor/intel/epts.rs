@@ -15,6 +15,7 @@ pub(crate) struct Epts {
     pd: [Pd; 512],
     pt: Pt,
 }
+
 impl Epts {
     pub(crate) fn build_identify(&mut self) {
         let mtrr = Mtrr::new();

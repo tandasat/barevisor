@@ -59,7 +59,7 @@ pub fn virtualize_system(hv_data: SharedData) {
 
 const HV_CPUID_VENDOR_AND_MAX_FUNCTIONS: u32 = 0x4000_0000;
 const HV_CPUID_INTERFACE: u32 = 0x4000_0001;
-const OUR_HV_VENDOR_NAME: u32 = 0x2143_4347; // "GCC!"
+const OUR_HV_VENDOR_NAME: u32 = 0x214d_4d56; // "VMM!"
 
 fn is_our_hypervisor_present() -> bool {
     let regs = cpuid!(HV_CPUID_VENDOR_AND_MAX_FUNCTIONS);
