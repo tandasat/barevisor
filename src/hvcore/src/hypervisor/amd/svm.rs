@@ -128,8 +128,8 @@ impl VirtualMachine for Vm {
         wrmsr(SVM_MSR_VM_HSAVE_PA, pa);
     }
 
-    fn initialize(&mut self, regs: &GuestRegisters) {
-        self.registers = *regs;
+    fn initialize(&mut self, registers: &GuestRegisters) {
+        self.registers = *registers;
         self.initialize_control();
         self.initialize_guest();
         self.initialize_host();

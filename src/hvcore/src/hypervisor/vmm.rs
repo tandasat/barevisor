@@ -24,7 +24,7 @@ pub(crate) trait Extension {
 pub(crate) trait VirtualMachine {
     fn new(id: u8) -> Self;
     fn activate(&mut self);
-    fn initialize(&mut self, regs: &GuestRegisters);
+    fn initialize(&mut self, registers: &GuestRegisters);
     fn run(&mut self) -> VmExitReason;
     fn regs(&mut self) -> &mut GuestRegisters;
 }
@@ -46,7 +46,7 @@ pub(crate) enum VmExitReason {
 #[repr(C)]
 pub(crate) struct VCpuParameters {
     pub(crate) processor_id: u8,
-    pub(crate) regs: GuestRegisters,
+    pub(crate) registers: GuestRegisters,
 }
 
 pub(crate) fn main(params: &VCpuParameters) -> ! {
@@ -66,7 +66,7 @@ fn virtualize_core<T: Architecture>(params: &VCpuParameters) -> ! {
     // Create a new (empty) VM instance and tell the processor to operate on it.
     let vm = &mut T::VirtualMachine::new(params.processor_id);
     vm.activate();
-    vm.initialize(&params.regs);
+    vm.initialize(&params.registers);
 
     log::info!("Starting the VM");
     loop {

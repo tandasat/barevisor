@@ -42,11 +42,11 @@ pub fn virtualize_system(hv_data: SharedData) {
     let _ = HV_SHARED_DATA.call_once(|| hv_data);
 
     platform_ops::get().run_on_all_processors(|| {
-        let regs = GuestRegisters::new();
+        let registers = GuestRegisters::new();
         if !is_our_hypervisor_present() {
             let params = vmm::VCpuParameters {
                 processor_id: processor_id_from(apic_id::get()).unwrap(),
-                regs,
+                registers,
             };
             log::info!("Virtualizing the processor {}", params.processor_id);
             switch_stack::jump_with_new_stack(&params, vmm::main);

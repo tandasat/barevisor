@@ -172,17 +172,17 @@ use crate::{
 
 use super::epts::Epts;
 
-pub(crate) struct SharedVmData {
-    pub(crate) msr_bitmaps: Box<Page>,
-    pub(crate) epts: Box<Epts>,
+struct SharedVmData {
+    msr_bitmaps: Box<Page>,
+    epts: Box<Epts>,
 }
 
 /// A collection of data that the hypervisor depends on for its entire lifespan.
-pub(crate) static SHARED_VM_DATA: Once<SharedVmData> = Once::new();
+static SHARED_VM_DATA: Once<SharedVmData> = Once::new();
 
 #[derive(Default)]
 pub(crate) struct Vm {
-    pub(crate) regs: GuestRegisters,
+    registers: GuestRegisters,
     id: usize,
     vmcs: Vmcs,
 }
@@ -200,7 +200,7 @@ impl VirtualMachine for Vm {
         });
 
         Self {
-            regs: GuestRegisters::default(),
+            registers: GuestRegisters::default(),
             id: id as usize,
             vmcs: Vmcs::new(),
         }
@@ -209,8 +209,8 @@ impl VirtualMachine for Vm {
         vmclear(&mut self.vmcs);
         vmptrld(&mut self.vmcs);
     }
-    fn initialize(&mut self, regs: &GuestRegisters) {
-        self.regs = *regs;
+    fn initialize(&mut self, registers: &GuestRegisters) {
+        self.registers = *registers;
         self.initialize_control();
         self.initialize_guest();
         self.initialize_host();
@@ -223,23 +223,23 @@ impl VirtualMachine for Vm {
         const VMX_EXIT_REASON_WRMSR: u16 = 32;
         const VMX_EXIT_REASON_XSETBV: u16 = 55;
 
-        vmwrite(vmcs::guest::RIP, self.regs.rip);
-        vmwrite(vmcs::guest::RSP, self.regs.rsp);
-        vmwrite(vmcs::guest::RFLAGS, self.regs.rflags);
+        vmwrite(vmcs::guest::RIP, self.registers.rip);
+        vmwrite(vmcs::guest::RSP, self.registers.rsp);
+        vmwrite(vmcs::guest::RFLAGS, self.registers.rflags);
 
         // Execute the VM until VM-exit occurs.
         log::trace!("Entering the VM");
-        log::trace!("{:#x?}", self.regs);
-        let flags = unsafe { run_vmx_vm(&mut self.regs) };
+        log::trace!("{:#x?}", self.registers);
+        let flags = unsafe { run_vmx_vm(&mut self.registers) };
         if let Err(err) = vmx_succeed(RFlags::from_raw(flags)) {
             panic!("{err}");
         }
-        self.regs.rip = vmread(vmcs::guest::RIP);
-        self.regs.rsp = vmread(vmcs::guest::RSP);
-        self.regs.rflags = vmread(vmcs::guest::RFLAGS);
+        self.registers.rip = vmread(vmcs::guest::RIP);
+        self.registers.rsp = vmread(vmcs::guest::RSP);
+        self.registers.rflags = vmread(vmcs::guest::RFLAGS);
 
         log::trace!("Exited the VM");
-        log::trace!("{:#x?}", self.regs);
+        log::trace!("{:#x?}", self.registers);
 
         // Return VM-exit reason.
         match vmread(vmcs::ro::EXIT_REASON) as u16 {
@@ -252,16 +252,16 @@ impl VirtualMachine for Vm {
                 VmExitReason::StartupIpi
             }
             VMX_EXIT_REASON_CPUID => VmExitReason::Cpuid(InstructionInfo {
-                next_rip: self.regs.rip + vmread(vmcs::ro::VMEXIT_INSTRUCTION_LEN),
+                next_rip: self.registers.rip + vmread(vmcs::ro::VMEXIT_INSTRUCTION_LEN),
             }),
             VMX_EXIT_REASON_RDMSR => VmExitReason::Rdmsr(InstructionInfo {
-                next_rip: self.regs.rip + vmread(vmcs::ro::VMEXIT_INSTRUCTION_LEN),
+                next_rip: self.registers.rip + vmread(vmcs::ro::VMEXIT_INSTRUCTION_LEN),
             }),
             VMX_EXIT_REASON_WRMSR => VmExitReason::Wrmsr(InstructionInfo {
-                next_rip: self.regs.rip + vmread(vmcs::ro::VMEXIT_INSTRUCTION_LEN),
+                next_rip: self.registers.rip + vmread(vmcs::ro::VMEXIT_INSTRUCTION_LEN),
             }),
             VMX_EXIT_REASON_XSETBV => VmExitReason::XSetBv(InstructionInfo {
-                next_rip: self.regs.rip + vmread(vmcs::ro::VMEXIT_INSTRUCTION_LEN),
+                next_rip: self.registers.rip + vmread(vmcs::ro::VMEXIT_INSTRUCTION_LEN),
             }),
             _ => {
                 log::error!("{:#x?}", self.vmcs);
@@ -273,7 +273,7 @@ impl VirtualMachine for Vm {
         }
     }
     fn regs(&mut self) -> &mut GuestRegisters {
-        &mut self.regs
+        &mut self.registers
     }
 }
 
@@ -432,9 +432,9 @@ impl Vm {
 
         vmwrite(vmcs::guest::DR7, unsafe { x86::debugregs::dr7() }.0 as u64);
 
-        vmwrite(vmcs::guest::RSP, self.regs.rsp);
-        vmwrite(vmcs::guest::RIP, self.regs.rip);
-        vmwrite(vmcs::guest::RFLAGS, self.regs.rflags);
+        vmwrite(vmcs::guest::RSP, self.registers.rsp);
+        vmwrite(vmcs::guest::RIP, self.registers.rip);
+        vmwrite(vmcs::guest::RFLAGS, self.registers.rflags);
     }
 
     fn initialize_host(&self) {
@@ -580,8 +580,8 @@ impl Vm {
 
         vmwrite(vmcs::guest::CS_SELECTOR, vector << 8);
         vmwrite(vmcs::guest::CS_BASE, vector << 12);
-        self.regs.rip = 0;
-        vmwrite(vmcs::guest::RIP, self.regs.rip);
+        self.registers.rip = 0;
+        vmwrite(vmcs::guest::RIP, self.registers.rip);
 
         vmwrite(
             vmcs::guest::ACTIVITY_STATE,
