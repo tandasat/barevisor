@@ -29,8 +29,9 @@ pub(crate) fn wrmsr(msr: u32, value: u64) {
 
 /// Reads the CR0 register.
 pub(crate) fn cr0() -> Cr0 {
-    // Safety: this project runs at CPL0.
-    unsafe { Cr0::from_bits_unchecked(::x86_64::registers::control::Cr0::read_raw() as usize) }
+    let value: usize;
+    unsafe { asm!("mov {}, cr0", out(reg) value, options(nomem, nostack, preserves_flags)) };
+    unsafe { Cr0::from_bits_unchecked(value) }
 }
 
 /// Writes a value to the CR0 register.
@@ -47,8 +48,9 @@ pub(crate) fn cr3() -> u64 {
 
 /// Reads the CR4 register.
 pub(crate) fn cr4() -> Cr4 {
-    // Safety: this project runs at CPL0.
-    unsafe { Cr4::from_bits_unchecked(::x86_64::registers::control::Cr4::read_raw() as usize) }
+    let value: usize;
+    unsafe { asm!("mov {}, cr4", out(reg) value, options(nomem, nostack, preserves_flags)) };
+    unsafe { Cr4::from_bits_unchecked(value) }
 }
 
 /// Writes a value to the CR4 register.

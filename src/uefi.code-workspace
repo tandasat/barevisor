@@ -7,5 +7,7 @@
 			"path": "hvcore"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"rust-analyzer.showUnlinkedFileNotification": false
+	}
 }

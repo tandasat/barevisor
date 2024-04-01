@@ -627,16 +627,13 @@ pub(crate) enum GuestActivityState {
     WaitForSipi = 0x00000003,
 }
 
-use {
-    x86::{
-        bits64::rflags,
-        controlregs::cr2_write,
-        debugregs::{dr0_write, dr1_write, dr2_write, dr3_write, dr6_write, Dr6},
-        msr::{IA32_VMX_CR0_FIXED0, IA32_VMX_CR0_FIXED1, IA32_VMX_CR4_FIXED0, IA32_VMX_CR4_FIXED1},
-        segmentation::{CodeSegmentType, DataSegmentType, SystemDescriptorTypes64},
-        vmx::vmcs::control::SecondaryControls,
-    },
-    x86_64::registers::control::Cr4Flags,
+use x86::{
+    bits64::rflags,
+    controlregs::cr2_write,
+    debugregs::{dr0_write, dr1_write, dr2_write, dr3_write, dr6_write, Dr6},
+    msr::{IA32_VMX_CR0_FIXED0, IA32_VMX_CR0_FIXED1},
+    segmentation::{CodeSegmentType, DataSegmentType, SystemDescriptorTypes64},
+    vmx::vmcs::control::SecondaryControls,
 };
 
 /// Handles the INIT signal by initializing processor state according to Intel SDM.
@@ -888,11 +885,12 @@ fn adjust_cr0(cr0: Cr0) -> Cr0 {
 ///
 /// Returns the adjusted CR4 value as a `u64`.
 fn adjust_cr4() -> u64 {
-    let fixed0_cr4 = Cr4Flags::from_bits_truncate(rdmsr(IA32_VMX_CR4_FIXED0));
-    let zero_cr4 = Cr4Flags::empty();
-    let new_cr4 =
-        (zero_cr4 & Cr4Flags::from_bits_truncate(rdmsr(IA32_VMX_CR4_FIXED1))) | fixed0_cr4;
-    new_cr4.bits()
+    let fixed0cr4 = rdmsr(x86::msr::IA32_VMX_CR4_FIXED0);
+    let fixed1cr4 = rdmsr(x86::msr::IA32_VMX_CR4_FIXED1);
+    let mut new_cr4 = cr4().bits() as u64;
+    new_cr4 &= fixed1cr4;
+    new_cr4 |= fixed0cr4;
+    new_cr4
 }
 
 /// Retrieves CPU feature information using the CPUID instruction.
