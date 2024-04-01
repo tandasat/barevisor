@@ -10,7 +10,7 @@ use uefi::table::{
     boot::{AllocateType, MemoryType},
     Boot, SystemTable,
 };
-use x86::current::paging::BASE_PAGE_SHIFT;
+use x86::bits64::paging::BASE_PAGE_SHIFT;
 
 pub(crate) fn init(system_table: &SystemTable<Boot>) {
     SYSTEM_TABLE.store(system_table.as_ptr().cast_mut(), Ordering::Release);

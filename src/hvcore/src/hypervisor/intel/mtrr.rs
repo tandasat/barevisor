@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use core::{arch::asm, ops::Range};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use x86::current::paging::BASE_PAGE_SHIFT;
+use x86::bits64::paging::BASE_PAGE_SHIFT;
 
 use crate::hypervisor::x86_instructions::rdmsr;
 

@@ -9,7 +9,7 @@ use alloc::boxed::Box;
 use bit_field::BitField;
 use spin::{Once, RwLock};
 use x86::{
-    bits64::paging::BASE_PAGE_SHIFT,
+    bits64::{paging::BASE_PAGE_SHIFT, rflags::RFlags},
     controlregs::cr3_write,
     cpuid::cpuid,
     msr::IA32_APIC_BASE,
@@ -236,7 +236,7 @@ impl Vm {
         self.vmcb.state_save_area.cr2 = 0;
         self.vmcb.state_save_area.cr3 = 0;
         self.vmcb.state_save_area.cr4 = 0;
-        self.vmcb.state_save_area.rflags = 1u64 << 1;
+        self.vmcb.state_save_area.rflags = RFlags::FLAGS_A1.bits();
         self.vmcb.state_save_area.efer = EFER_SVME;
         self.vmcb.state_save_area.rip = 0xfff0;
         self.vmcb.state_save_area.cs_selector = 0xf000;

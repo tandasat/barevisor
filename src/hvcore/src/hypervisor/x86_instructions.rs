@@ -7,8 +7,8 @@
 
 use core::arch::asm;
 use x86::{
+    bits64::rflags::RFlags,
     controlregs::{Cr0, Cr4, Xcr0},
-    current::rflags::RFlags,
     dtables::DescriptorTablePointer,
     segmentation::SegmentSelector,
 };

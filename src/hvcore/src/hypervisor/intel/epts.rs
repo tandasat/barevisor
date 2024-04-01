@@ -1,8 +1,5 @@
 use core::ptr::addr_of;
-use x86::{
-    bits64::paging::BASE_PAGE_SIZE,
-    current::paging::{BASE_PAGE_SHIFT, LARGE_PAGE_SIZE},
-};
+use x86::bits64::paging::{BASE_PAGE_SHIFT, BASE_PAGE_SIZE, LARGE_PAGE_SIZE};
 
 use crate::{hypervisor::intel::mtrr::MemoryType, hypervisor::platform_ops};
 
@@ -47,7 +44,7 @@ impl Epts {
                         let memory_type =
                             mtrr.find(pa..pa + BASE_PAGE_SIZE as u64)
                                 .unwrap_or_else(|| {
-                                    panic!("Memory type could not be resolved for {pa:#x?}")
+                                    panic!("Could not resolve a memory type for {pa:#x?}")
                                 });
                         pte.set_readable(true);
                         pte.set_writable(true);
@@ -60,11 +57,9 @@ impl Epts {
                     // For the rest of GPAes, manage them with 2MB large page EPTs.
                     // We assume MTRR memory types are configured for 2MB or greater
                     // granularity.
-                    let memory_type =
-                        mtrr.find(pa..pa + LARGE_PAGE_SIZE as u64)
-                            .unwrap_or_else(|| {
-                                panic!("Memory type could not be resolved for {pa:#x?}")
-                            });
+                    let memory_type = mtrr
+                        .find(pa..pa + LARGE_PAGE_SIZE as u64)
+                        .unwrap_or_else(|| panic!("Could not resolve a memory type for {pa:#x?}"));
                     pde.set_readable(true);
                     pde.set_writable(true);
                     pde.set_executable(true);

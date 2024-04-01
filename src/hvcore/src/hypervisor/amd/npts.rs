@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
 use bit_field::BitField;
-use x86::{bits32::paging::BASE_PAGE_SIZE, current::paging::BASE_PAGE_SHIFT};
+use x86::bits64::paging::{BASE_PAGE_SHIFT, BASE_PAGE_SIZE};
 
 use crate::hypervisor::{
     paging_structures::{build_identity_, Entry, PagingStructuresRaw, Pt},
