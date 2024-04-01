@@ -45,7 +45,7 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
 
     // Build the host page tables.
     let mut host_pt = PagingStructures::new();
-    host_pt.ptr.build_identity();
+    host_pt.build_identity();
 
     let hv_data = hv::SharedData {
         host_idt: None,

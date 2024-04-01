@@ -25,6 +25,7 @@ com_logger = "0.1"
 derivative = { version = "2.2", features = ["use_core"] }
 num-derive = { version = "0.4", default-features = false }
 num-traits = { version = "0.2", default-features = false }
+derive_deref = "1.1"
 
 [dev-dependencies]
 env_logger = "0.11"

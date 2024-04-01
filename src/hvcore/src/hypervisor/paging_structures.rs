@@ -4,8 +4,7 @@ use x86::current::paging::{BASE_PAGE_SHIFT, LARGE_PAGE_SIZE};
 
 use super::{platform_ops, support::zeroed_box};
 
-// TODO: reconsider this -Raw approach. I probably like explicit Box<Foo> better
-#[derive(Debug, Clone)]
+#[derive(Debug, derive_deref::Deref, derive_deref::DerefMut)]
 pub struct PagingStructures {
     pub ptr: Box<PagingStructuresRaw>,
 }
@@ -24,7 +23,7 @@ impl Default for PagingStructures {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 #[repr(C, align(4096))]
 pub struct PagingStructuresRaw {
     pub(crate) pml4: Pml4,
@@ -33,7 +32,7 @@ pub struct PagingStructuresRaw {
     pub(crate) pt: Pt,
 }
 
-pub fn build_identity_(ps: &mut PagingStructuresRaw, npt: bool) {
+pub(crate) fn build_identity_(ps: &mut PagingStructuresRaw, npt: bool) {
     let ops = platform_ops::get();
     let user = npt;
 

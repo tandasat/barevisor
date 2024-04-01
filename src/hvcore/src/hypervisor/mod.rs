@@ -27,7 +27,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct SharedData {
     pub host_pt: Option<PagingStructures>,
-    pub host_idt: Option<Box<u64>>,
+    pub host_idt: Option<Vec<u64>>,
     pub host_gdt_and_tss: Option<Vec<Box<GdtTss>>>,
 }
 

@@ -38,7 +38,7 @@ impl Vmx {
         Self::adjust_cr0();
         Self::adjust_cr4();
         Self::adjust_feature_control_msr();
-        vmxon(self.vmxon_region.ptr.as_mut());
+        vmxon(&mut self.vmxon_region);
         self.enabled = true;
     }
 
@@ -107,7 +107,7 @@ impl Drop for Vmx {
         }
     }
 }
-#[derive(Default)]
+#[derive(Default, derive_deref::Deref, derive_deref::DerefMut)]
 
 struct Vmxon {
     ptr: Box<VmxonRaw>,
@@ -152,7 +152,7 @@ fn vmxoff() {
 
 // ------------------- VM -------------
 
-use core::arch::global_asm;
+use core::{arch::global_asm, ptr::addr_of};
 use spin::once::Once;
 use x86::{
     current::rflags::RFlags,
@@ -442,8 +442,7 @@ impl Vm {
 
         let shared_data = HV_SHARED_DATA.get().unwrap();
         let cr3 = if let Some(host_pt) = &shared_data.host_pt {
-            host_pt.ptr.as_ref() as *const crate::hypervisor::paging_structures::PagingStructuresRaw
-                as u64
+            addr_of!(*host_pt.as_ref()) as u64
         } else {
             cr3()
         };
@@ -974,7 +973,7 @@ use alloc::{
 };
 use x86::current::paging::BASE_PAGE_SIZE;
 
-#[derive(Default)]
+#[derive(Default, derive_deref::Deref, derive_deref::DerefMut)]
 pub(crate) struct Vmcs {
     ptr: Box<VmcsRaw>,
 }
@@ -984,20 +983,6 @@ impl Vmcs {
         let mut vmcs = zeroed_box::<VmcsRaw>();
         vmcs.revision_id = rdmsr(x86::msr::IA32_VMX_BASIC) as _;
         Self { ptr: vmcs }
-    }
-}
-
-impl core::ops::Deref for Vmcs {
-    type Target = VmcsRaw;
-
-    fn deref(&self) -> &Self::Target {
-        &self.ptr
-    }
-}
-
-impl core::ops::DerefMut for Vmcs {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.ptr
     }
 }
 
