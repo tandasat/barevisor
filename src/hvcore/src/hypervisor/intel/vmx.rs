@@ -35,48 +35,11 @@ impl Vmx {
 
     pub(crate) fn enable_(&mut self) {
         assert!(!self.enabled);
-        Self::adjust_cr0();
-        Self::adjust_cr4();
+        cr0_write(get_adjusted_cr0(cr0()));
+        cr4_write(get_adjusted_cr4(cr4()));
         Self::adjust_feature_control_msr();
         vmxon(&mut self.vmxon_region);
         self.enabled = true;
-    }
-
-    /// Updates the CR0 to satisfy the requirement for entering VMX operation.
-    fn adjust_cr0() {
-        // In order to enter VMX operation, some bits in CR0 (and CR4) have to be
-        // set or cleared as indicated by the FIXED0 and FIXED1 MSRs. The rule is
-        // summarized as below (taking CR0 as an example):
-        //
-        //        IA32_VMX_CR0_FIXED0 IA32_VMX_CR0_FIXED1 Meaning
-        // Bit X  1                   (Always 1)          The bit X of CR0 is fixed to 1
-        // Bit X  0                   1                   The bit X of CR0 is flexible
-        // Bit X  (Always 0)          0                   The bit X of CR0 is fixed to 0
-        //
-        // Some UEFI implementations do not fullfil those requirements for CR0 and
-        // need adjustments. The requirements for CR4 are always satisfied as far
-        // as the author has experimented (although not guaranteed).
-        //
-        // See: A.7 VMX-FIXED BITS IN CR0
-        // See: A.8 VMX-FIXED BITS IN CR4
-        let fixed0cr0 = rdmsr(x86::msr::IA32_VMX_CR0_FIXED0);
-        let fixed1cr0 = rdmsr(x86::msr::IA32_VMX_CR0_FIXED1);
-        let mut new_cr0 = cr0().bits() as u64;
-        new_cr0 &= fixed1cr0;
-        new_cr0 |= fixed0cr0;
-        let new_cr0 = unsafe { Cr0::from_bits_unchecked(new_cr0 as usize) };
-        cr0_write(new_cr0);
-    }
-
-    /// Updates the CR4 to satisfy the requirement for entering VMX operation.
-    fn adjust_cr4() {
-        let fixed0cr4 = rdmsr(x86::msr::IA32_VMX_CR4_FIXED0);
-        let fixed1cr4 = rdmsr(x86::msr::IA32_VMX_CR4_FIXED1);
-        let mut new_cr4 = cr4().bits() as u64;
-        new_cr4 &= fixed1cr4;
-        new_cr4 |= fixed0cr4;
-        let new_cr4 = unsafe { Cr4::from_bits_unchecked(new_cr4 as usize) };
-        cr4_write(new_cr4);
     }
 
     /// Updates an MSR to satisfy the requirement for entering VMX operation.
@@ -107,8 +70,8 @@ impl Drop for Vmx {
         }
     }
 }
-#[derive(Default, derive_deref::Deref, derive_deref::DerefMut)]
 
+#[derive(Default, derive_deref::Deref, derive_deref::DerefMut)]
 struct Vmxon {
     ptr: Box<VmxonRaw>,
 }
@@ -147,7 +110,7 @@ fn vmxon(vmxon_region: &mut VmxonRaw) {
 /// The wrapper of the VMXOFF instruction.
 fn vmxoff() {
     // Safety: this project runs at CPL0.
-    unsafe { x86::current::vmx::vmxoff().unwrap() };
+    unsafe { x86::bits64::vmx::vmxoff().unwrap() };
 }
 
 // ------------------- VM -------------
@@ -155,9 +118,13 @@ fn vmxoff() {
 use core::{arch::global_asm, ptr::addr_of};
 use spin::once::Once;
 use x86::{
-    current::rflags::RFlags,
+    bits64::rflags::RFlags,
+    controlregs::cr2_write,
+    debugregs::{dr0_write, dr1_write, dr2_write, dr3_write, dr6_write, Dr6},
     segmentation::{cs, ds, es, fs, gs, ss, SegmentSelector},
+    segmentation::{CodeSegmentType, DataSegmentType, SystemDescriptorTypes64},
     vmx::vmcs,
+    vmx::vmcs::control::SecondaryControls,
 };
 
 use crate::{
@@ -244,7 +211,7 @@ impl VirtualMachine for Vm {
         // Return VM-exit reason.
         match vmread(vmcs::ro::EXIT_REASON) as u16 {
             VMX_EXIT_REASON_INIT => {
-                handle_init_signal(self);
+                self.handle_init_signal();
                 VmExitReason::InitSignal
             }
             VMX_EXIT_REASON_SIPI => {
@@ -575,6 +542,130 @@ impl Vm {
         (access_rights >> 8) & 0b1111_0000_1111_1111
     }
 
+    fn handle_init_signal(&mut self) {
+        self.registers.rflags = RFlags::FLAGS_A1.bits();
+        vmwrite(vmcs::guest::RFLAGS, self.registers.rflags);
+        self.registers.rip = 0xfff0;
+        vmwrite(vmcs::guest::RIP, self.registers.rip);
+        vmwrite(vmcs::control::CR0_READ_SHADOW, 0u64);
+        unsafe { cr2_write(0) };
+        vmwrite(vmcs::guest::CR3, 0u64);
+        vmwrite(vmcs::control::CR4_READ_SHADOW, 0u64);
+
+        //
+        // Actual guest CR0 and CR4 must fulfill requirements for VMX. Apply those.
+        //
+        let cr0 = Cr0::from(Cr0::CR0_EXTENSION_TYPE);
+        vmwrite(vmcs::guest::CR0, get_adjusted_guest_cr0(cr0).bits() as u64);
+        let cr4 = Cr4::empty();
+        vmwrite(vmcs::guest::CR4, get_adjusted_guest_cr4(cr4).bits() as u64);
+
+        let mut access_rights = VmxSegmentAccessRights(0);
+        access_rights.set_segment_type(CodeSegmentType::ExecuteReadAccessed as u32);
+        access_rights.set_descriptor_type(true);
+        access_rights.set_present(true);
+
+        vmwrite(vmcs::guest::CS_SELECTOR, 0xf000u64);
+        vmwrite(vmcs::guest::CS_BASE, 0xffff_0000u64);
+        vmwrite(vmcs::guest::CS_LIMIT, 0xffffu64);
+        vmwrite(vmcs::guest::CS_ACCESS_RIGHTS, access_rights.0);
+
+        access_rights.set_segment_type(DataSegmentType::ReadWriteAccessed as u32);
+        vmwrite(vmcs::guest::SS_SELECTOR, 0u64);
+        vmwrite(vmcs::guest::SS_BASE, 0u64);
+        vmwrite(vmcs::guest::SS_LIMIT, 0xffffu64);
+        vmwrite(vmcs::guest::SS_ACCESS_RIGHTS, access_rights.0);
+
+        vmwrite(vmcs::guest::DS_SELECTOR, 0u64);
+        vmwrite(vmcs::guest::DS_BASE, 0u64);
+        vmwrite(vmcs::guest::DS_LIMIT, 0xffffu64);
+        vmwrite(vmcs::guest::DS_ACCESS_RIGHTS, access_rights.0);
+
+        vmwrite(vmcs::guest::ES_SELECTOR, 0u64);
+        vmwrite(vmcs::guest::ES_BASE, 0u64);
+        vmwrite(vmcs::guest::ES_LIMIT, 0xffffu64);
+        vmwrite(vmcs::guest::ES_ACCESS_RIGHTS, access_rights.0);
+
+        vmwrite(vmcs::guest::FS_SELECTOR, 0u64);
+        vmwrite(vmcs::guest::FS_BASE, 0u64);
+        vmwrite(vmcs::guest::FS_LIMIT, 0xffffu64);
+        vmwrite(vmcs::guest::FS_ACCESS_RIGHTS, access_rights.0);
+
+        vmwrite(vmcs::guest::GS_SELECTOR, 0u64);
+        vmwrite(vmcs::guest::GS_BASE, 0u64);
+        vmwrite(vmcs::guest::GS_LIMIT, 0xffffu64);
+        vmwrite(vmcs::guest::GS_ACCESS_RIGHTS, access_rights.0);
+
+        let extended_model_id = x86::cpuid::CpuId::new()
+            .get_feature_info()
+            .unwrap()
+            .extended_model_id();
+        self.registers.rdx = 0x600 | ((extended_model_id as u64) << 16);
+        self.registers.rax = 0x0;
+        self.registers.rbx = 0x0;
+        self.registers.rcx = 0x0;
+        self.registers.rsi = 0x0;
+        self.registers.rdi = 0x0;
+        self.registers.rbp = 0x0;
+
+        self.registers.rsp = 0x0u64;
+        vmwrite(vmcs::guest::RSP, self.registers.rsp);
+
+        vmwrite(vmcs::guest::GDTR_BASE, 0u64);
+        vmwrite(vmcs::guest::GDTR_LIMIT, 0xffffu64);
+        vmwrite(vmcs::guest::IDTR_BASE, 0u64);
+        vmwrite(vmcs::guest::IDTR_LIMIT, 0xffffu64);
+
+        access_rights.set_segment_type(SystemDescriptorTypes64::LDT as u32);
+        access_rights.set_descriptor_type(false);
+        vmwrite(vmcs::guest::LDTR_SELECTOR, 0u64);
+        vmwrite(vmcs::guest::LDTR_BASE, 0u64);
+        vmwrite(vmcs::guest::LDTR_LIMIT, 0xffffu64);
+        vmwrite(vmcs::guest::LDTR_ACCESS_RIGHTS, access_rights.0);
+
+        access_rights.set_segment_type(SystemDescriptorTypes64::TssBusy as u32);
+        vmwrite(vmcs::guest::TR_SELECTOR, 0u64);
+        vmwrite(vmcs::guest::TR_BASE, 0u64);
+        vmwrite(vmcs::guest::TR_LIMIT, 0xffffu64);
+        vmwrite(vmcs::guest::TR_ACCESS_RIGHTS, access_rights.0);
+
+        unsafe {
+            dr0_write(0);
+            dr1_write(0);
+            dr2_write(0);
+            dr3_write(0);
+            dr6_write(Dr6::from_bits_unchecked(0xffff0ff0));
+        };
+        vmwrite(vmcs::guest::DR7, 0x400u64);
+
+        self.registers.r8 = 0u64;
+        self.registers.r9 = 0u64;
+        self.registers.r10 = 0u64;
+        self.registers.r11 = 0u64;
+        self.registers.r12 = 0u64;
+        self.registers.r13 = 0u64;
+        self.registers.r14 = 0u64;
+        self.registers.r15 = 0u64;
+
+        vmwrite(vmcs::guest::IA32_EFER_FULL, 0u64);
+        vmwrite(vmcs::guest::FS_BASE, 0u64);
+        vmwrite(vmcs::guest::GS_BASE, 0u64);
+
+        //
+        // Set IA32E_MODE_GUEST to 0. from_bits_truncate will fail
+        //
+        let mut vmentry_controls = vmread(vmcs::control::VMENTRY_CONTROLS);
+        vmentry_controls &= !(vmcs::control::EntryControls::IA32E_MODE_GUEST.bits() as u64); // Clear the IA32E_MODE_GUEST bit
+        vmwrite(vmcs::control::VMENTRY_CONTROLS, vmentry_controls);
+
+        // invalidate TLB?
+
+        vmwrite(
+            vmcs::guest::ACTIVITY_STATE,
+            GuestActivityState::WaitForSipi as u32,
+        );
+    }
+
     fn handle_sipi_signal(&mut self) {
         let vector = vmread(vmcs::ro::EXIT_QUALIFICATION);
 
@@ -614,235 +705,22 @@ enum VmxControl {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum GuestActivityState {
     /// The logical processor is executing instructions normally.
-    Active = 0x00000000,
+    Active = 0,
 
     /// The logical processor is inactive because it executed the HLT instruction.
-    Hlt = 0x00000001,
+    Hlt = 1,
 
     /// The logical processor is inactive because it incurred a triple fault
     /// or some other serious error.
-    Shutdown = 0x00000002,
+    Shutdown = 2,
 
     /// The logical processor is inactive because it is waiting for a startup-IPI (SIPI).
-    WaitForSipi = 0x00000003,
+    WaitForSipi = 3,
 }
 
-use x86::{
-    bits64::rflags,
-    controlregs::cr2_write,
-    debugregs::{dr0_write, dr1_write, dr2_write, dr3_write, dr6_write, Dr6},
-    msr::{IA32_VMX_CR0_FIXED0, IA32_VMX_CR0_FIXED1},
-    segmentation::{CodeSegmentType, DataSegmentType, SystemDescriptorTypes64},
-    vmx::vmcs::control::SecondaryControls,
-};
-
-/// Handles the INIT signal by initializing processor state according to Intel SDM.
-///
-/// Initializes the guest's processor state to mimic the state after receiving an INIT signal, including
-/// setting registers and segment selectors to their startup values. This ensures the guest VM is correctly
-/// initialized in line with the MP initialization protocol.
-///
-/// # Arguments
-///
-/// - `guest_registers`: A mutable reference to the guest's general-purpose registers.
-///
-/// # Returns
-///
-/// Returns `ExitType::Continue` to indicate the VM should continue execution post-initialization.
-pub(crate) fn handle_init_signal<T: crate::hypervisor::vmm::VirtualMachine>(vm: &mut T) {
-    //
-    // Initializes the processor to the state after INIT as described in the Intel SDM.
-    //
-
-    //
-    // See: Table 9-1. IA-32 and Intel 64 Processor States Following Power-up, Reset, or INIT
-    //
-    vm.regs().rflags = rflags::RFlags::FLAGS_A1.bits();
-    vmwrite(vmcs::guest::RFLAGS, vm.regs().rflags);
-    vm.regs().rip = 0xfff0u64;
-    vmwrite(vmcs::guest::RIP, vm.regs().rip);
-    vmwrite(vmcs::control::CR0_READ_SHADOW, 0u64);
-    unsafe { cr2_write(0) };
-    vmwrite(vmcs::guest::CR3, 0u64);
-    vmwrite(vmcs::control::CR4_READ_SHADOW, 0u64);
-
-    //
-    // Actual guest CR0 and CR4 must fulfill requirements for VMX. Apply those.
-    //
-    vmwrite(vmcs::guest::CR0, adjust_guest_cr0(Cr0::CR0_EXTENSION_TYPE));
-    vmwrite(vmcs::guest::CR4, adjust_cr4());
-
-    //
-    // Set the CS segment registers to their initial state (ExecuteReadAccessed).
-    //
-    let mut access_rights = VmxSegmentAccessRights(0);
-    access_rights.set_segment_type(CodeSegmentType::ExecuteReadAccessed as u32);
-    access_rights.set_descriptor_type(true);
-    access_rights.set_present(true);
-
-    vmwrite(vmcs::guest::CS_SELECTOR, 0xf000u64);
-    vmwrite(vmcs::guest::CS_BASE, 0xffff_0000u64);
-    vmwrite(vmcs::guest::CS_LIMIT, 0xffffu64);
-    vmwrite(vmcs::guest::CS_ACCESS_RIGHTS, access_rights.0);
-
-    //
-    // Set the SS segment registers to their initial state (ReadWriteAccessed).
-    //
-    access_rights.set_segment_type(DataSegmentType::ReadWriteAccessed as u32);
-    vmwrite(vmcs::guest::SS_SELECTOR, 0u64);
-    vmwrite(vmcs::guest::SS_BASE, 0u64);
-    vmwrite(vmcs::guest::SS_LIMIT, 0xffffu64);
-    vmwrite(vmcs::guest::SS_ACCESS_RIGHTS, access_rights.0);
-
-    //
-    // Set the DS segment registers to their initial state (ReadWriteAccessed).
-    //
-    vmwrite(vmcs::guest::DS_SELECTOR, 0u64);
-    vmwrite(vmcs::guest::DS_BASE, 0u64);
-    vmwrite(vmcs::guest::DS_LIMIT, 0xffffu64);
-    vmwrite(vmcs::guest::DS_ACCESS_RIGHTS, access_rights.0);
-
-    //
-    // Set the ES segment registers to their initial state (ReadWriteAccessed).
-    //
-    vmwrite(vmcs::guest::ES_SELECTOR, 0u64);
-    vmwrite(vmcs::guest::ES_BASE, 0u64);
-    vmwrite(vmcs::guest::ES_LIMIT, 0xffffu64);
-    vmwrite(vmcs::guest::ES_ACCESS_RIGHTS, access_rights.0);
-
-    //
-    // Set the FS segment registers to their initial state (ReadWriteAccessed).
-    //
-    vmwrite(vmcs::guest::FS_SELECTOR, 0u64);
-    vmwrite(vmcs::guest::FS_BASE, 0u64);
-    vmwrite(vmcs::guest::FS_LIMIT, 0xffffu64);
-    vmwrite(vmcs::guest::FS_ACCESS_RIGHTS, access_rights.0);
-
-    //
-    // Set the GS segment registers to their initial state (ReadWriteAccessed).
-    //
-    vmwrite(vmcs::guest::GS_SELECTOR, 0u64);
-    vmwrite(vmcs::guest::GS_BASE, 0u64);
-    vmwrite(vmcs::guest::GS_LIMIT, 0xffffu64);
-    vmwrite(vmcs::guest::GS_ACCESS_RIGHTS, access_rights.0);
-
-    //
-    // Execute CPUID instruction on the host and retrieve the result
-    //
-    let extended_model_id = get_cpuid_feature_info().extended_model_id();
-    vm.regs().rdx = 0x600 | ((extended_model_id as u64) << 16);
-    vm.regs().rax = 0x0;
-    vm.regs().rbx = 0x0;
-    vm.regs().rcx = 0x0;
-    vm.regs().rsi = 0x0;
-    vm.regs().rdi = 0x0;
-    vm.regs().rbp = 0x0;
-
-    // RSP
-    vm.regs().rsp = 0x0u64;
-    vmwrite(vmcs::guest::RSP, vm.regs().rsp);
-
-    //
-    // Handle GDTR and IDTR
-    //
-    vmwrite(vmcs::guest::GDTR_BASE, 0u64);
-    vmwrite(vmcs::guest::GDTR_LIMIT, 0xffffu64);
-    vmwrite(vmcs::guest::IDTR_BASE, 0u64);
-    vmwrite(vmcs::guest::IDTR_LIMIT, 0xffffu64);
-
-    //
-    // Handle LDTR
-    //
-    access_rights.set_segment_type(SystemDescriptorTypes64::LDT as u32);
-    access_rights.set_descriptor_type(false);
-    vmwrite(vmcs::guest::LDTR_SELECTOR, 0u64);
-    vmwrite(vmcs::guest::LDTR_BASE, 0u64);
-    vmwrite(vmcs::guest::LDTR_LIMIT, 0xffffu64);
-    vmwrite(vmcs::guest::LDTR_ACCESS_RIGHTS, access_rights.0);
-
-    //
-    // Handle TR
-    //
-    access_rights.set_segment_type(SystemDescriptorTypes64::TssBusy as u32);
-    vmwrite(vmcs::guest::TR_SELECTOR, 0u64);
-    vmwrite(vmcs::guest::TR_BASE, 0u64);
-    vmwrite(vmcs::guest::TR_LIMIT, 0xffffu64);
-    vmwrite(vmcs::guest::TR_ACCESS_RIGHTS, access_rights.0);
-
-    //
-    // DR0, DR1, DR2, DR3, DR6, DR7
-    //
-    unsafe {
-        dr0_write(0);
-        dr1_write(0);
-        dr2_write(0);
-        dr3_write(0);
-        dr6_write(Dr6::from_bits_unchecked(0xffff0ff0));
-    };
-    vmwrite(vmcs::guest::DR7, 0x400u64);
-
-    //
-    // Set the guest registers r8-r15 to 0.
-    //
-    vm.regs().r8 = 0u64;
-    vm.regs().r9 = 0u64;
-    vm.regs().r10 = 0u64;
-    vm.regs().r11 = 0u64;
-    vm.regs().r12 = 0u64;
-    vm.regs().r13 = 0u64;
-    vm.regs().r14 = 0u64;
-    vm.regs().r15 = 0u64;
-
-    //
-    // Those registers are supposed to be cleared but that is not implemented here.
-    //  - IA32_XSS
-    //  - BNDCFGU
-    //  - BND0-BND3
-    //  - IA32_BNDCFGS
-
-    //
-    // Set Guest EFER, FS_BASE and GS_BASE to 0.
-    //
-    vmwrite(vmcs::guest::IA32_EFER_FULL, 0u64);
-    vmwrite(vmcs::guest::FS_BASE, 0u64);
-    vmwrite(vmcs::guest::GS_BASE, 0u64);
-
-    //
-    // Set IA32E_MODE_GUEST to 0. from_bits_truncate will fail
-    //
-    let mut vmentry_controls = vmread(vmcs::control::VMENTRY_CONTROLS);
-    vmentry_controls &= !(vmcs::control::EntryControls::IA32E_MODE_GUEST.bits() as u64); // Clear the IA32E_MODE_GUEST bit
-    vmwrite(vmcs::control::VMENTRY_CONTROLS, vmentry_controls);
-
-    //
-    // Invalidate TLB for current VPID
-    //
-    //invvpid_single_context(vmread(vmcs::control::VPID) as _);
-
-    //
-    // Set the activity state to "Wait for SIPI".
-    //
-    vmwrite(
-        vmcs::guest::ACTIVITY_STATE,
-        GuestActivityState::WaitForSipi as u32,
-    );
-}
-
-/// Adjusts guest CR0 considering UnrestrictedGuest feature and fixed MSRs.
-///
-/// Modifies the guest's CR0 register to ensure it meets VMX operation constraints, particularly
-/// when the UnrestrictedGuest feature is enabled. Adjusts for protection and paging enable bits.
-///
-/// # Arguments
-///
-/// - `cr0`: The original CR0 register value from the guest.
-///
-/// # Returns
-///
-/// Returns the adjusted CR0 value as a `u64`.
-fn adjust_guest_cr0(cr0: Cr0) -> u64 {
+fn get_adjusted_guest_cr0(cr0: Cr0) -> Cr0 {
     // Adjust the CR0 register according to the fixed0 and fixed1 MSR values.
-    let mut new_cr0 = adjust_cr0(cr0);
+    let mut new_cr0 = get_adjusted_cr0(cr0);
 
     // Read the secondary processor-based VM-execution controls to check for UnrestrictedGuest support.
     let secondary_proc_based_ctls2 = vmread(vmcs::control::SECONDARY_PROCBASED_EXEC_CONTROLS);
@@ -855,55 +733,40 @@ fn adjust_guest_cr0(cr0: Cr0) -> u64 {
         new_cr0 |= cr0 & (Cr0::CR0_PROTECTED_MODE | Cr0::CR0_ENABLE_PAGING);
     }
 
-    new_cr0.bits() as u64
+    new_cr0
 }
 
-/// Adjusts guest CR0 considering UnrestrictedGuest feature and fixed MSRs.
-///
-/// Modifies the guest's CR0 register to ensure it meets VMX operation constraints, particularly
-/// when the UnrestrictedGuest feature is enabled. Adjusts for protection and paging enable bits.
-///
-/// # Arguments
-///
-/// - `cr0`: The original CR0 register value from the guest.
-///
-/// # Returns
-///
-/// Returns the adjusted CR0 value as a `u64`.
-fn adjust_cr0(cr0: Cr0) -> Cr0 {
-    let fixed0_cr0 = Cr0::from_bits_truncate(rdmsr(IA32_VMX_CR0_FIXED0) as usize);
-    let fixed1_cr0 = Cr0::from_bits_truncate(rdmsr(IA32_VMX_CR0_FIXED1) as usize);
-    (cr0 & fixed1_cr0) | fixed0_cr0
+fn get_adjusted_guest_cr4(cr4: Cr4) -> Cr4 {
+    get_adjusted_cr4(cr4)
 }
 
-/// Adjusts CR4 for VMX operation, considering fixed bit requirements.
-///
-/// Sets or clears CR4 bits based on the IA32_VMX_CR4_FIXED0/1 MSRs to ensure the register
-/// meets VMX operation constraints.
-///
-/// # Returns
-///
-/// Returns the adjusted CR4 value as a `u64`.
-fn adjust_cr4() -> u64 {
-    let fixed0cr4 = rdmsr(x86::msr::IA32_VMX_CR4_FIXED0);
-    let fixed1cr4 = rdmsr(x86::msr::IA32_VMX_CR4_FIXED1);
-    let mut new_cr4 = cr4().bits() as u64;
-    new_cr4 &= fixed1cr4;
-    new_cr4 |= fixed0cr4;
-    new_cr4
+/// Updates the CR0 to satisfy the requirement for entering VMX operation.
+fn get_adjusted_cr0(cr0: Cr0) -> Cr0 {
+    // In order to enter VMX operation, some bits in CR0 (and CR4) have to be
+    // set or cleared as indicated by the FIXED0 and FIXED1 MSRs. The rule is
+    // summarized as below (taking CR0 as an example):
+    //
+    //        IA32_VMX_CR0_FIXED0 IA32_VMX_CR0_FIXED1 Meaning
+    // Bit X  1                   (Always 1)          The bit X of CR0 is fixed to 1
+    // Bit X  0                   1                   The bit X of CR0 is flexible
+    // Bit X  (Always 0)          0                   The bit X of CR0 is fixed to 0
+    //
+    // Some UEFI implementations do not fullfil those requirements for CR0 and
+    // need adjustments. The requirements for CR4 are always satisfied as far
+    // as the author has experimented (although not guaranteed).
+    //
+    // See: A.7 VMX-FIXED BITS IN CR0
+    // See: A.8 VMX-FIXED BITS IN CR4
+    let fixed0 = unsafe { Cr0::from_bits_unchecked(rdmsr(x86::msr::IA32_VMX_CR0_FIXED0) as _) };
+    let fixed1 = unsafe { Cr0::from_bits_unchecked(rdmsr(x86::msr::IA32_VMX_CR0_FIXED1) as _) };
+    (cr0 & fixed1) | fixed0
 }
 
-/// Retrieves CPU feature information using the CPUID instruction.
-///
-/// Executes the CPUID instruction to obtain various feature information about the processor,
-/// which can be used for further adjustments and checks in the virtualization context.
-///
-/// # Returns
-///
-/// Returns a `FeatureInfo` struct containing the CPU feature information.
-fn get_cpuid_feature_info() -> x86::cpuid::FeatureInfo {
-    let cpuid = x86::cpuid::CpuId::new();
-    cpuid.get_feature_info().unwrap()
+/// Updates the CR4 to satisfy the requirement for entering VMX operation.
+fn get_adjusted_cr4(cr4: Cr4) -> Cr4 {
+    let fixed0 = unsafe { Cr4::from_bits_unchecked(rdmsr(x86::msr::IA32_VMX_CR4_FIXED0) as _) };
+    let fixed1 = unsafe { Cr4::from_bits_unchecked(rdmsr(x86::msr::IA32_VMX_CR4_FIXED1) as _) };
+    (cr4 & fixed1) | fixed0
 }
 
 bitfield::bitfield! {
@@ -969,7 +832,7 @@ use alloc::{
     format,
     string::{String, ToString},
 };
-use x86::current::paging::BASE_PAGE_SIZE;
+use x86::bits64::paging::BASE_PAGE_SIZE;
 
 #[derive(Default, derive_deref::Deref, derive_deref::DerefMut)]
 pub(crate) struct Vmcs {
