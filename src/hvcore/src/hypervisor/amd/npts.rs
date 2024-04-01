@@ -8,13 +8,13 @@ use crate::hypervisor::{
     support::zeroed_box,
 };
 
-#[derive(Debug, Clone)]
-pub struct NestedPageTables {
-    pub ptr: Box<PagingStructuresRaw>,
+#[derive(Debug, derive_deref::Deref, derive_deref::DerefMut)]
+pub(crate) struct NestedPageTables {
+    ptr: Box<PagingStructuresRaw>,
 }
 
 impl NestedPageTables {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             ptr: zeroed_box::<PagingStructuresRaw>(),
         }
@@ -28,7 +28,7 @@ impl NestedPageTables {
     }
 
     pub(crate) fn pt(&mut self) -> &mut Pt {
-        &mut self.ptr.pt
+        &mut self.pt
     }
 
     fn split_2mb_(pde: &mut Entry, pt: &mut Pt) {
@@ -65,7 +65,7 @@ impl Default for NestedPageTables {
 }
 
 impl NestedPageTables {
-    pub fn build_identity(&mut self) {
-        build_identity_(self.ptr.as_mut(), true);
+    pub(crate) fn build_identity(&mut self) {
+        build_identity_(self.as_mut(), true);
     }
 }

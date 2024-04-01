@@ -19,6 +19,7 @@ use x86::{
 use crate::hypervisor::{
     capture_registers::GuestRegisters,
     platform_ops, processor_id_from,
+    support::zeroed_box,
     vmm::{Extension, InstructionInfo, VirtualMachine, VmExitReason},
     x86_instructions::{cr0, cr3, cr4, rdmsr, sgdt, sidt, wrmsr},
     HV_SHARED_DATA,
@@ -44,10 +45,7 @@ impl SharedVmData {
         npt.build_identity();
 
         let apic_base_raw = rdmsr(IA32_APIC_BASE);
-        assert!(
-            !apic_base_raw.get_bit(10),
-            "x2APIC is enabled but not supported"
-        );
+        assert!(!apic_base_raw.get_bit(10), "x2APIC is enabled");
         assert!(apic_base_raw.get_bit(11), "APIC is disabled");
         let apic_base = apic_base_raw & !0xfff;
 
@@ -75,28 +73,25 @@ impl Extension for Svm {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, derivative::Derivative)]
+#[derivative(Default)]
 enum GuestActivityState {
+    #[derivative(Default)]
     Active,
     WaitForSipi,
 }
 
-impl Default for GuestActivityState {
-    fn default() -> Self {
-        Self::Active
-    }
-}
-
 #[derive(derivative::Derivative)]
 #[derivative(Debug, Default)]
+//#[derivative(Default(new = "true"))]
 pub(crate) struct Vm {
     id: usize,
-    vmcb: Box<Vmcb>,
+    vmcb: Vmcb,
     vmcb_pa: u64,
-    host_vmcb: Box<Vmcb>,
+    host_vmcb: Vmcb,
     host_vmcb_pa: u64,
     #[derivative(Debug = "ignore")]
-    host_state: Box<HostStateArea>,
+    host_state: HostStateArea,
     registers: GuestRegisters,
     activity_state: GuestActivityState,
 }
@@ -105,6 +100,7 @@ impl VirtualMachine for Vm {
     fn new(id: u8) -> Self {
         let _ = SHARED_VM_DATA.call_once(SharedVmData::new);
 
+        // TODO: clean up this mess (use new()? )
         let mut vm = Self {
             id: id as usize,
             ..Default::default()
@@ -469,7 +465,7 @@ impl Vm {
         //
         // See: 15.25.3 Enabling Nested Paging
         let shared_vm_data = SHARED_VM_DATA.get().unwrap();
-        let nested_pml4_addr = shared_vm_data.npt.read().ptr.as_ref() as *const _;
+        let nested_pml4_addr = addr_of!(*shared_vm_data.npt.read().as_ref());
         self.vmcb.control_area.np_enable = SVM_NP_ENABLE_NP_ENABLE;
         self.vmcb.control_area.ncr3 = platform_ops::get().pa(nested_pml4_addr as _);
 
@@ -526,7 +522,7 @@ impl Vm {
         let ops = platform_ops::get();
 
         if let Some(host_pt) = &shared_data.host_pt {
-            let pml4 = host_pt.ptr.as_ref() as *const _;
+            let pml4 = addr_of!(*host_pt.as_ref());
             unsafe { cr3_write(ops.pa(pml4 as _)) };
             log::debug!("Updated CR3");
         }
@@ -547,17 +543,30 @@ impl Vm {
     }
 }
 
+#[derive(Debug, derive_deref::Deref, derive_deref::DerefMut)]
+struct Vmcb {
+    ptr: Box<VmcbRaw>,
+}
+
+impl Default for Vmcb {
+    fn default() -> Self {
+        Self {
+            ptr: zeroed_box::<VmcbRaw>(),
+        }
+    }
+}
+
 /// The virtual machine control block (VMCB), which describes a virtual machine
 /// (guest) to be executed.
 ///
 /// See: Appendix B Layout of VMCB
 #[derive(Debug, Default)]
 #[repr(C, align(4096))]
-struct Vmcb {
+struct VmcbRaw {
     control_area: ControlArea,
     state_save_area: StateSaveArea,
 }
-const _: () = assert!(core::mem::size_of::<Vmcb>() == 0x1000);
+const _: () = assert!(core::mem::size_of::<VmcbRaw>() == 0x1000);
 
 /// The "metadata" area where we can specify what operations to intercept and
 /// can read details of #VMEXIT.
@@ -706,6 +715,19 @@ struct StateSaveArea {
 }
 const _: () = assert!(core::mem::size_of::<StateSaveArea>() == 0x2e8);
 
+#[derive(derive_deref::Deref, derive_deref::DerefMut)]
+struct HostStateArea {
+    ptr: Box<HostStateAreaRaw>,
+}
+
+impl Default for HostStateArea {
+    fn default() -> Self {
+        Self {
+            ptr: zeroed_box::<HostStateAreaRaw>(),
+        }
+    }
+}
+
 /// 4KB block of memory where the host state is saved to on VMRUN and loaded
 /// from on #VMEXIT.
 ///
@@ -713,10 +735,10 @@ const _: () = assert!(core::mem::size_of::<StateSaveArea>() == 0x2e8);
 // doc_markdown: clippy confused with "VM_HSAVE_PA"
 #[allow(clippy::doc_markdown)]
 #[repr(C, align(4096))]
-struct HostStateArea([u8; 0x1000]);
-const _: () = assert!(core::mem::size_of::<HostStateArea>() == 0x1000);
+struct HostStateAreaRaw([u8; 0x1000]);
+const _: () = assert!(core::mem::size_of::<HostStateAreaRaw>() == 0x1000);
 
-impl Default for HostStateArea {
+impl Default for HostStateAreaRaw {
     fn default() -> Self {
         Self([0; 4096])
     }
