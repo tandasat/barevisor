@@ -106,8 +106,8 @@ impl VirtualMachine for Vm {
             ..Default::default()
         };
 
-        vm.vmcb_pa = platform_ops::get().pa(addr_of!(*vm.vmcb) as _);
-        vm.host_vmcb_pa = platform_ops::get().pa(addr_of!(*vm.host_vmcb) as _);
+        vm.vmcb_pa = platform_ops::get().pa(addr_of!(*vm.vmcb.as_ref()) as _);
+        vm.host_vmcb_pa = platform_ops::get().pa(addr_of!(*vm.host_vmcb.as_ref()) as _);
         if cfg!(feature = "uefi") && vm.id == 0 {
             vm.intercept_apic_write(true);
         }
@@ -124,7 +124,7 @@ impl VirtualMachine for Vm {
         //  the host state-save area in main memory at the physical address
         //  specified in the VM_HSAVE_PA MSR".
         // See: 15.5.1 Basic Operation
-        let pa = platform_ops::get().pa(addr_of!(*self.host_state) as _);
+        let pa = platform_ops::get().pa(addr_of!(*self.host_state.as_ref()) as _);
         wrmsr(SVM_MSR_VM_HSAVE_PA, pa);
     }
 
