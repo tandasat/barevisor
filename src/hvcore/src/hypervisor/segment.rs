@@ -159,10 +159,25 @@ mod tests {
 
         let gdtr = DescriptorTablePointer::<u64>::new_from_slice(&gdt);
 
-        assert_eq!(SegmentDescriptor::try_from_gdtr(&gdtr, cs).unwrap().base(), 0);
-        assert_eq!(SegmentDescriptor::try_from_gdtr(&gdtr, ss).unwrap().base(), 0);
-        assert_eq!(SegmentDescriptor::try_from_gdtr(&gdtr, ds).unwrap().base(), 0);
-        assert_eq!(SegmentDescriptor::try_from_gdtr(&gdtr, tr).unwrap().base(), 0xfffff80571e7b000);
-        assert_eq!(SegmentDescriptor::try_from_gdtr(&gdtr, fs).unwrap().base(), 0);
+        assert_eq!(
+            SegmentDescriptor::try_from_gdtr(&gdtr, cs).unwrap().base(),
+            0
+        );
+        assert_eq!(
+            SegmentDescriptor::try_from_gdtr(&gdtr, ss).unwrap().base(),
+            0
+        );
+        assert_eq!(
+            SegmentDescriptor::try_from_gdtr(&gdtr, ds).unwrap().base(),
+            0
+        );
+        assert_eq!(
+            SegmentDescriptor::try_from_gdtr(&gdtr, tr).unwrap().base(),
+            0xfffff80571e7b000
+        );
+        assert_eq!(
+            SegmentDescriptor::try_from_gdtr(&gdtr, fs).unwrap().base(),
+            0
+        );
     }
 }

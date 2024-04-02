@@ -1,5 +1,12 @@
-use alloc::boxed::Box;
-use x86::controlregs::{Cr0, Cr4};
+use alloc::{
+    boxed::Box,
+    format,
+    string::{String, ToString},
+};
+use x86::{
+    bits64::paging::BASE_PAGE_SIZE,
+    controlregs::{Cr0, Cr4},
+};
 
 use crate::hypervisor::{
     platform_ops,
@@ -15,7 +22,12 @@ pub(crate) struct Vmx {
 
 impl Extension for Vmx {
     fn enable(&mut self) {
-        self.enable_();
+        assert!(!self.enabled);
+        cr0_write(get_adjusted_cr0(cr0()));
+        cr4_write(get_adjusted_cr4(cr4()));
+        Self::adjust_feature_control_msr();
+        vmxon(&mut self.vmxon_region);
+        self.enabled = true;
     }
 }
 
@@ -25,21 +37,20 @@ impl Default for Vmx {
     }
 }
 
+impl Drop for Vmx {
+    fn drop(&mut self) {
+        if self.enabled {
+            vmxoff();
+        }
+    }
+}
+
 impl Vmx {
     pub(crate) fn new() -> Self {
         Self {
             vmxon_region: Vmxon::new(),
             enabled: false,
         }
-    }
-
-    pub(crate) fn enable_(&mut self) {
-        assert!(!self.enabled);
-        cr0_write(get_adjusted_cr0(cr0()));
-        cr4_write(get_adjusted_cr4(cr4()));
-        Self::adjust_feature_control_msr();
-        vmxon(&mut self.vmxon_region);
-        self.enabled = true;
     }
 
     /// Updates an MSR to satisfy the requirement for entering VMX operation.
@@ -59,14 +70,6 @@ impl Vmx {
                     | IA32_FEATURE_CONTROL_ENABLE_VMX_OUTSIDE_SMX_FLAG
                     | IA32_FEATURE_CONTROL_LOCK_BIT_FLAG,
             );
-        }
-    }
-}
-
-impl Drop for Vmx {
-    fn drop(&mut self) {
-        if self.enabled {
-            vmxoff();
         }
     }
 }
@@ -172,16 +175,19 @@ impl VirtualMachine for Vm {
             vmcs: Vmcs::new(),
         }
     }
+
     fn activate(&mut self) {
         vmclear(&mut self.vmcs);
         vmptrld(&mut self.vmcs);
     }
+
     fn initialize(&mut self, registers: &GuestRegisters) {
         self.registers = *registers;
         self.initialize_control();
         self.initialize_guest();
         self.initialize_host();
     }
+
     fn run(&mut self) -> VmExitReason {
         const VMX_EXIT_REASON_INIT: u16 = 3;
         const VMX_EXIT_REASON_SIPI: u16 = 4;
@@ -239,6 +245,7 @@ impl VirtualMachine for Vm {
             }
         }
     }
+
     fn regs(&mut self) -> &mut GuestRegisters {
         &mut self.registers
     }
@@ -828,19 +835,13 @@ bitfield::bitfield! {
     // compatibility with future processors.
 }
 
-use alloc::{
-    format,
-    string::{String, ToString},
-};
-use x86::bits64::paging::BASE_PAGE_SIZE;
-
 #[derive(Default, derive_deref::Deref, derive_deref::DerefMut)]
-pub(crate) struct Vmcs {
+struct Vmcs {
     ptr: Box<VmcsRaw>,
 }
 
 impl Vmcs {
-    pub(crate) fn new() -> Self {
+    fn new() -> Self {
         let mut vmcs = zeroed_box::<VmcsRaw>();
         vmcs.revision_id = rdmsr(x86::msr::IA32_VMX_BASIC) as _;
         Self { ptr: vmcs }
@@ -854,7 +855,7 @@ impl Vmcs {
 #[derive(derivative::Derivative)]
 #[derivative(Default, Debug)]
 #[repr(C, align(4096))]
-pub(crate) struct VmcsRaw {
+struct VmcsRaw {
     revision_id: u32,
     abort_indicator: u32,
     #[derivative(Default(value = "[0; 4088]"), Debug = "ignore")]
@@ -863,7 +864,7 @@ pub(crate) struct VmcsRaw {
 const _: () = assert!(core::mem::size_of::<VmcsRaw>() == BASE_PAGE_SIZE);
 
 /// The wrapper of the VMCLEAR instruction.
-pub(crate) fn vmclear(vmcs_region: &mut VmcsRaw) {
+fn vmclear(vmcs_region: &mut VmcsRaw) {
     let va = vmcs_region as *const _;
     let pa = platform_ops::get().pa(va as *const _);
 
@@ -872,7 +873,7 @@ pub(crate) fn vmclear(vmcs_region: &mut VmcsRaw) {
 }
 
 /// The wrapper of the VMPTRLD instruction.
-pub(crate) fn vmptrld(vmcs_region: &mut VmcsRaw) {
+fn vmptrld(vmcs_region: &mut VmcsRaw) {
     let va = vmcs_region as *const _;
     let pa = platform_ops::get().pa(va as *const _);
 
@@ -881,7 +882,7 @@ pub(crate) fn vmptrld(vmcs_region: &mut VmcsRaw) {
 }
 
 /// The wrapper of the VMREAD instruction.
-pub(crate) fn vmread(encoding: u32) -> u64 {
+fn vmread(encoding: u32) -> u64 {
     // Safety: this project runs at CPL0.
     unsafe { x86::bits64::vmx::vmread(encoding) }.unwrap()
 }
@@ -893,7 +894,7 @@ fn vmread_relaxed(encoding: u32) -> u64 {
 }
 
 /// The wrapper of the VMWRITE instruction.
-pub(crate) fn vmwrite<T: Into<u64>>(encoding: u32, value: T)
+fn vmwrite<T: Into<u64>>(encoding: u32, value: T)
 where
     u64: From<T>,
 {
@@ -906,7 +907,7 @@ where
 /// Checks that the latest VMX instruction succeeded.
 ///
 /// See: 31.2 CONVENTIONS
-pub(crate) fn vmx_succeed(flags: RFlags) -> Result<(), String> {
+fn vmx_succeed(flags: RFlags) -> Result<(), String> {
     if flags.contains(RFlags::FLAGS_ZF) {
         // See: 31.4 VM INSTRUCTION ERROR NUMBERS
         Err(format!(
