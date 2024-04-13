@@ -37,9 +37,7 @@ static SHARED_VM_DATA: Once<SharedVmData> = Once::new();
 
 impl SharedVmData {
     fn new() -> Self {
-        #[allow(clippy::declare_interior_mutable_const)]
-        const ARRAY_REPEAT_VALUE: AtomicU16 = AtomicU16::new(u16::MAX);
-        let sipi_vectors = [ARRAY_REPEAT_VALUE; 0xff];
+        let sipi_vectors = core::array::from_fn(|_| AtomicU16::new(u16::MAX));
 
         let mut npt = NestedPageTables::new();
         npt.build_identity();

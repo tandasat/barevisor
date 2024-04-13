@@ -53,7 +53,6 @@ impl TestVm for Bochs {
         let _unused = thread::spawn(move || {
             // Start Bochs from the "tests" directory in background.
             let bochs = if cfg!(target_os = "windows") {
-                //r"C:\class\Bochs\bochs\obj-release\bochs.exe"
                 r"C:\Program Files\Bochs-2.8\bochs.exe"
             } else {
                 "bochs"
