@@ -14,6 +14,12 @@ publish.workspace = true
 [lints]
 workspace = true
 
+# no_std cannot support `cargo test` and `cargo bench`
+[[bin]]
+name = "check_hv_vendor"
+test = false
+bench = false
+
 [dependencies]
 uefi = { version = "0.27", default-features = false }
 uefi-services = { version = "0.24", default-features = false }

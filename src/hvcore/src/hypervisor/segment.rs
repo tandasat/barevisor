@@ -113,8 +113,17 @@ impl From<u64> for SegmentDescriptorRaw {
 mod tests {
     use super::*;
 
+    #[ctor::ctor]
+    fn init() {
+        env_logger::builder()
+            .filter_level(log::LevelFilter::Warn)
+            .init();
+    }
+
     #[test]
     fn base() {
+        log::trace!("Example use of the logger in test...");
+
         /*
             kd> dg 0 60
                                                                 P Si Gr Pr Lo
