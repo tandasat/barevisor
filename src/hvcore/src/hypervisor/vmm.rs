@@ -14,7 +14,7 @@ use super::{amd::Amd, intel::Intel};
 
 pub(crate) trait Architecture {
     type Extension: Extension + Default;
-    type VirtualMachine: VirtualMachine + Default;
+    type VirtualMachine: VirtualMachine;
 }
 
 pub(crate) trait Extension {

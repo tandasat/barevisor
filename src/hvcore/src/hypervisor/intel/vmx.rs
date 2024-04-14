@@ -150,7 +150,6 @@ struct SharedVmData {
 /// A collection of data that the hypervisor depends on for its entire lifespan.
 static SHARED_VM_DATA: Once<SharedVmData> = Once::new();
 
-#[derive(Default)]
 pub(crate) struct Vm {
     registers: GuestRegisters,
     id: usize,

@@ -1,8 +1,7 @@
 use core::{
     arch::global_asm,
-    hint::spin_loop,
     ptr::addr_of,
-    sync::atomic::{AtomicU16, Ordering},
+    sync::atomic::{AtomicU8, Ordering},
 };
 
 use alloc::boxed::Box;
@@ -29,16 +28,17 @@ use super::npts::NestedPageTables;
 
 struct SharedVmData {
     npt: RwLock<NestedPageTables>,
-    sipi_vectors: [AtomicU16; 0xff],
+    activity_states: [AtomicU8; 0xff],
 }
+
+const ACTIVE_STATE: u8 = 0;
+const WAIT_FOR_SIPI_STATE: u8 = u8::MAX;
 
 /// A collection of data that the hypervisor depends on for its entire lifespan.
 static SHARED_VM_DATA: Once<SharedVmData> = Once::new();
 
 impl SharedVmData {
     fn new() -> Self {
-        let sipi_vectors = core::array::from_fn(|_| AtomicU16::new(u16::MAX));
-
         let mut npt = NestedPageTables::new();
         npt.build_identity();
 
@@ -51,7 +51,7 @@ impl SharedVmData {
 
         Self {
             npt: RwLock::new(npt),
-            sipi_vectors,
+            activity_states: core::array::from_fn(|_| AtomicU8::new(ACTIVE_STATE)),
         }
     }
 }
@@ -71,17 +71,8 @@ impl Extension for Svm {
     }
 }
 
-#[derive(Debug, PartialEq, derivative::Derivative)]
-#[derivative(Default)]
-enum GuestActivityState {
-    #[derivative(Default)]
-    Active,
-    WaitForSipi,
-}
-
 #[derive(derivative::Derivative)]
-#[derivative(Debug, Default)]
-//#[derivative(Default(new = "true"))]
+#[derivative(Debug)]
 pub(crate) struct Vm {
     id: usize,
     vmcb: Vmcb,
@@ -91,17 +82,23 @@ pub(crate) struct Vm {
     #[derivative(Debug = "ignore")]
     host_state: HostStateArea,
     registers: GuestRegisters,
-    activity_state: GuestActivityState,
+    activity_state: &'static AtomicU8,
 }
 
 impl VirtualMachine for Vm {
     fn new(id: u8) -> Self {
-        let _ = SHARED_VM_DATA.call_once(SharedVmData::new);
+        let vm_data = SHARED_VM_DATA.call_once(SharedVmData::new);
 
         // TODO: clean up this mess (use new()? )
         let mut vm = Self {
             id: id as usize,
-            ..Default::default()
+            vmcb: Vmcb::default(),
+            vmcb_pa: 0,
+            host_vmcb: Vmcb::default(),
+            host_vmcb_pa: 0,
+            host_state: HostStateArea::default(),
+            registers: GuestRegisters::default(),
+            activity_state: &vm_data.activity_states[id as usize],
         };
 
         vm.vmcb_pa = platform_ops::get().pa(addr_of!(*vm.vmcb.as_ref()) as _);
@@ -213,14 +210,22 @@ impl Vm {
     fn handle_security_exception(&mut self) {
         assert!(self.id != 0);
         self.handle_init_signal();
-        let vector = self.wait_for_sipi();
-        self.handle_sipi(vector);
+        self.handle_sipi(self.wait_for_sipi());
     }
 
     fn handle_init_signal(&mut self) {
         const EFER_SVME: u64 = 1 << 12;
 
         assert!(self.id != 0);
+
+        // Update the state to Wait-for-SIPI as soon as possible since we are
+        // racing against BSP sending SIPI.
+        assert!(
+            self.activity_state
+                .swap(WAIT_FOR_SIPI_STATE, Ordering::Relaxed)
+                == ACTIVE_STATE
+        );
+
         log::trace!("INIT");
 
         // Extension Type
@@ -299,32 +304,30 @@ impl Vm {
         self.vmcb.state_save_area.dr7 = 0x400;
 
         // TLB and clean bits
-
-        self.activity_state = GuestActivityState::WaitForSipi;
     }
 
-    fn wait_for_sipi(&mut self) -> u8 {
+    fn wait_for_sipi(&self) -> u8 {
         assert!(self.id != 0);
-        assert!(self.activity_state == GuestActivityState::WaitForSipi);
+        assert!(self.activity_state.load(Ordering::Relaxed) == WAIT_FOR_SIPI_STATE);
 
-        let shared_vm_data = SHARED_VM_DATA.get().unwrap();
-        let sipi_vector = &shared_vm_data.sipi_vectors[self.id];
-        while sipi_vector.load(Ordering::Relaxed) == u16::MAX {
-            spin_loop();
+        // Wait for SIPI sent from BSP.
+        while self.activity_state.load(Ordering::Relaxed) == WAIT_FOR_SIPI_STATE {
+            core::hint::spin_loop();
         }
-        sipi_vector.swap(u16::MAX, Ordering::Relaxed) as _
+
+        // Received SIPI. Fetch the vector value and get out of the Wait-for-SIPI state.
+        self.activity_state.swap(ACTIVE_STATE, Ordering::Relaxed)
     }
 
     fn handle_sipi(&mut self, vector: u8) {
         assert!(self.id != 0);
-        assert!(self.activity_state == GuestActivityState::WaitForSipi);
+        assert!(self.activity_state.load(Ordering::Relaxed) == ACTIVE_STATE);
         log::trace!("SIPI vector {vector:#x?}");
 
         self.vmcb.state_save_area.cs_selector = (vector as u16) << 8;
         self.vmcb.state_save_area.cs_base = (vector as u64) << 12;
         self.vmcb.state_save_area.rip = 0;
         self.registers.rip = 0;
-        self.activity_state = GuestActivityState::Active;
     }
 
     fn intercept_apic_write(&mut self, enable: bool) {
@@ -434,13 +437,19 @@ impl Vm {
         let apic_id = icr_high_value.get_bits(24..=31) as u8;
         let processor_id = processor_id_from(apic_id).unwrap() as usize;
         log::info!("SIPI to {apic_id} with vector {vector:#x?}");
+        assert!(vector != WAIT_FOR_SIPI_STATE);
 
-        // Update the global object with the obtained vector value. APs should
-        // be spinning based on this value and exit the spin once we update the
-        // value here.
+        // Update the activity state of the target processor with the obtained
+        // vector value. The target processor should get out from the busy loop
+        // after this.
         let shared_vm_data = SHARED_VM_DATA.get().unwrap();
-        let sipi_vector = &shared_vm_data.sipi_vectors[processor_id];
-        assert!(sipi_vector.swap(vector as _, Ordering::Relaxed) == u16::MAX);
+        let activity_state = &shared_vm_data.activity_states[processor_id];
+        let _ = activity_state.compare_exchange(
+            WAIT_FOR_SIPI_STATE,
+            vector,
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+        );
     }
 
     fn initialize_control(&mut self) {
