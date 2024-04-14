@@ -31,8 +31,12 @@ struct SharedVmData {
     activity_states: [AtomicU8; 0xff],
 }
 
-const ACTIVE_STATE: u8 = 0;
-const WAIT_FOR_SIPI_STATE: u8 = u8::MAX;
+#[repr(u8)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum GuestActivityState {
+    Active = 0,
+    WaitForSipi = u8::MAX,
+}
 
 /// A collection of data that the hypervisor depends on for its entire lifespan.
 static SHARED_VM_DATA: Once<SharedVmData> = Once::new();
@@ -51,7 +55,9 @@ impl SharedVmData {
 
         Self {
             npt: RwLock::new(npt),
-            activity_states: core::array::from_fn(|_| AtomicU8::new(ACTIVE_STATE)),
+            activity_states: core::array::from_fn(|_| {
+                AtomicU8::new(GuestActivityState::Active as u8)
+            }),
         }
     }
 }
@@ -222,8 +228,8 @@ impl Vm {
         // racing against BSP sending SIPI.
         assert!(
             self.activity_state
-                .swap(WAIT_FOR_SIPI_STATE, Ordering::Relaxed)
-                == ACTIVE_STATE
+                .swap(GuestActivityState::WaitForSipi as u8, Ordering::Relaxed)
+                == GuestActivityState::Active as u8
         );
 
         log::trace!("INIT");
@@ -308,20 +314,23 @@ impl Vm {
 
     fn wait_for_sipi(&self) -> u8 {
         assert!(self.id != 0);
-        assert!(self.activity_state.load(Ordering::Relaxed) == WAIT_FOR_SIPI_STATE);
+        assert!(
+            self.activity_state.load(Ordering::Relaxed) == GuestActivityState::WaitForSipi as u8
+        );
 
         // Wait for SIPI sent from BSP.
-        while self.activity_state.load(Ordering::Relaxed) == WAIT_FOR_SIPI_STATE {
+        while self.activity_state.load(Ordering::Relaxed) == GuestActivityState::WaitForSipi as u8 {
             core::hint::spin_loop();
         }
 
         // Received SIPI. Fetch the vector value and get out of the Wait-for-SIPI state.
-        self.activity_state.swap(ACTIVE_STATE, Ordering::Relaxed)
+        self.activity_state
+            .swap(GuestActivityState::Active as u8, Ordering::Relaxed)
     }
 
     fn handle_sipi(&mut self, vector: u8) {
         assert!(self.id != 0);
-        assert!(self.activity_state.load(Ordering::Relaxed) == ACTIVE_STATE);
+        assert!(self.activity_state.load(Ordering::Relaxed) == GuestActivityState::Active as u8);
         log::trace!("SIPI vector {vector:#x?}");
 
         self.vmcb.state_save_area.cs_selector = (vector as u16) << 8;
@@ -437,7 +446,7 @@ impl Vm {
         let apic_id = icr_high_value.get_bits(24..=31) as u8;
         let processor_id = processor_id_from(apic_id).unwrap() as usize;
         log::info!("SIPI to {apic_id} with vector {vector:#x?}");
-        assert!(vector != WAIT_FOR_SIPI_STATE);
+        assert!(vector != GuestActivityState::WaitForSipi as u8);
 
         // Update the activity state of the target processor with the obtained
         // vector value. The target processor should get out from the busy loop
@@ -445,7 +454,7 @@ impl Vm {
         let shared_vm_data = SHARED_VM_DATA.get().unwrap();
         let activity_state = &shared_vm_data.activity_states[processor_id];
         let _ = activity_state.compare_exchange(
-            WAIT_FOR_SIPI_STATE,
+            GuestActivityState::WaitForSipi as u8,
             vector,
             Ordering::Relaxed,
             Ordering::Relaxed,
