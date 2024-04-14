@@ -22,7 +22,7 @@ use crate::hypervisor::{
     support::zeroed_box,
     vmm::{Extension, InstructionInfo, VirtualMachine, VmExitReason},
     x86_instructions::{cr0, cr3, cr4, rdmsr, sgdt, sidt, wrmsr},
-    HV_SHARED_DATA,
+    SHARED_HV_DATA,
 };
 
 use super::npts::NestedPageTables;
@@ -516,7 +516,7 @@ impl Vm {
     }
 
     fn initialize_host(&mut self) {
-        let shared_data = HV_SHARED_DATA.get().unwrap();
+        let shared_data = SHARED_HV_DATA.get().unwrap();
         let ops = platform_ops::get();
 
         if let Some(host_pt) = &shared_data.host_pt {

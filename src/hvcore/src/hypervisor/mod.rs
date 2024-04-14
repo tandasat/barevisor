@@ -33,14 +33,14 @@ pub struct SharedData {
 }
 
 /// A collection of data that the hypervisor depends on for its entire lifespan.
-static HV_SHARED_DATA: Once<SharedData> = Once::new();
+static SHARED_HV_DATA: Once<SharedData> = Once::new();
 
 pub fn virtualize_system(hv_data: SharedData) {
     serial_logger::init(log::LevelFilter::Info);
     log::info!("Virtualizing the all processors");
 
     apic_id::init();
-    let _ = HV_SHARED_DATA.call_once(|| hv_data);
+    let _ = SHARED_HV_DATA.call_once(|| hv_data);
 
     platform_ops::get().run_on_all_processors(|| {
         let registers = GuestRegisters::new();

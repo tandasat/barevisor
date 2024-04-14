@@ -131,7 +131,7 @@ use x86::{
 };
 
 use crate::{
-    hypervisor::HV_SHARED_DATA,
+    hypervisor::SHARED_HV_DATA,
     hypervisor::{
         capture_registers::GuestRegisters,
         segment::SegmentDescriptor,
@@ -414,7 +414,7 @@ impl Vm {
     fn initialize_host(&self) {
         let gdtr = sgdt();
 
-        let shared_data = HV_SHARED_DATA.get().unwrap();
+        let shared_data = SHARED_HV_DATA.get().unwrap();
         let cr3 = if let Some(host_pt) = &shared_data.host_pt {
             addr_of!(*host_pt.as_ref()) as u64
         } else {
