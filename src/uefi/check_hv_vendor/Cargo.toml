@@ -21,6 +21,6 @@ test = false
 bench = false
 
 [dependencies]
+raw-cpuid = "11.0"
 uefi = { version = "0.27", default-features = false }
 uefi-services = { version = "0.24", default-features = false }
-raw-cpuid = "11.0"
