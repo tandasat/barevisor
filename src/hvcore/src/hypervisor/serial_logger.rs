@@ -1,33 +1,40 @@
-use core::fmt::Write;
-use spin::Mutex;
+// https://github.com/iankronquist/rustyvisor/tree/83b53ac104d85073858ba83326a28a6e08d1af12/pcuart
+// https://wiki.osdev.org/Serial_Ports
 
-static LOGGER: UartLogger = UartLogger::new(UartComPort::Com1);
+use core::fmt::Write;
+use spin::{Mutex, Once};
+
+static LOGGER: Once<SerialLogger> = Once::new();
 
 pub(crate) fn init(level: log::LevelFilter) {
-    LOGGER.init();
-    log::set_logger(&LOGGER)
-        .map(|()| log::set_max_level(level))
-        .unwrap();
+    let logger = LOGGER.call_once(SerialLogger::new);
+    log::set_logger(logger).unwrap();
+    log::set_max_level(level);
 }
 
-pub struct UartLogger {
+#[allow(dead_code)]
+#[derive(Copy, Clone)]
+#[repr(u16)]
+enum SerialPort {
+    Com1 = 0x3f8,
+    Com2 = 0x2f8,
+    Com3 = 0x3e8,
+    Com4 = 0x2e8,
+}
+
+struct SerialLogger {
     port: Mutex<Uart>,
 }
 
-impl UartLogger {
-    /// Creates a new UART logger which will use the given port.
-    pub const fn new(port: UartComPort) -> Self {
+impl SerialLogger {
+    fn new() -> Self {
         Self {
-            port: Mutex::new(Uart::new(port)),
+            port: Mutex::new(Uart::new(SerialPort::Com1, 115200)),
         }
-    }
-    /// Configures the UART to use an 115200 baud rate.
-    pub fn init(&self) {
-        self.port.lock().init(UartBaudRate::Baud115200);
     }
 }
 
-impl log::Log for UartLogger {
+impl log::Log for SerialLogger {
     fn enabled(&self, metadata: &log::Metadata) -> bool {
         metadata.level() <= log::Level::Trace
     }
@@ -36,16 +43,12 @@ impl log::Log for UartLogger {
         if self.enabled(record.metadata()) {
             let _ = write!(
                 self.port.lock(),
-                "{:>5}: {} ({}:{})\n",
+                "#{}:{:>5}: {} ({}:{})\n",
+                apic_id(),
                 record.level(),
                 record.args(),
                 record.file().unwrap_or("<unknown>"),
                 record.line().unwrap_or(0),
-                /*
-                "{}: {}\r\n",
-                record.level(),
-                record.args()
-                */
             );
         }
     }
@@ -53,45 +56,19 @@ impl log::Log for UartLogger {
     fn flush(&self) {}
 }
 
-/// The port to be used by the UART object.
-#[derive(Copy, Clone)]
-#[repr(u16)]
-pub enum UartComPort {
-    /// COM1 port, with IO port 0x3f8
-    Com1 = 0x3f8,
-    /// COM2 port, with IO port 0x2f8
-    Com2 = 0x2f8,
-    /// COM3 port, with IO port 0x3e8
-    Com3 = 0x3e8,
-    /// COM4 port, with IO port 0x4e8
-    Com4 = 0x2e8,
-}
-
-/// A UART object.
 #[derive(Default)]
-pub struct Uart {
-    io_port_base: u16,
-}
-
-/// The baud rate for the UART.
-#[derive(Copy, Clone)]
-pub enum UartBaudRate {
-    /// Configure the UART to use an 115200 baud rate.
-    Baud115200 = 115200,
-    /// Configure the UART to use a 9600 baud rate.
-    Baud9600 = 9600,
+struct Uart {
+    port: u16,
 }
 
 impl Uart {
-    /// Creates a new UART on the given COM port.
-    pub const fn new(com: UartComPort) -> Self {
-        Self {
-            io_port_base: com as u16,
-        }
+    fn new(port: SerialPort, baud_rate: u64) -> Self {
+        let port = port as u16;
+        Self::init(port, baud_rate);
+        Self { port }
     }
 
-    /// Configures the UART with the given baud rate.
-    pub fn init(&self, baud_rate: UartBaudRate) {
+    fn init(port: u16, baud_rate: u64) {
         const UART_OFFSET_DIVISOR_LATCH_LOW: u16 = 0;
         const UART_OFFSET_INTERRUPT_ENABLE: u16 = 1;
         const UART_OFFSET_DIVISOR_LATCH_HIGH: u16 = 1;
@@ -99,37 +76,33 @@ impl Uart {
         const UART_OFFSET_LINE_CONTROL: u16 = 3;
         const UART_OFFSET_MODEM_CONTROL: u16 = 4;
 
-        outb(self.io_port_base + UART_OFFSET_INTERRUPT_ENABLE, 0x00);
-        outb(self.io_port_base + UART_OFFSET_LINE_CONTROL, 0x80);
+        outb(port + UART_OFFSET_INTERRUPT_ENABLE, 0);
+        outb(port + UART_OFFSET_LINE_CONTROL, 0x80);
 
-        let divider = 115200 / (baud_rate as u64);
+        let divider = 115200 / baud_rate;
         let dlab_low = divider as u8;
         let dlab_high = (divider >> 8) as u8;
-        outb(self.io_port_base + UART_OFFSET_DIVISOR_LATCH_LOW, dlab_low);
-        outb(
-            self.io_port_base + UART_OFFSET_DIVISOR_LATCH_HIGH,
-            dlab_high,
-        );
-        outb(self.io_port_base + UART_OFFSET_LINE_CONTROL, 0x03);
-        outb(self.io_port_base + UART_OFFSET_FIFO_CONTROL, 0xc7);
-        outb(self.io_port_base + UART_OFFSET_MODEM_CONTROL, 0x0b);
+        outb(port + UART_OFFSET_DIVISOR_LATCH_LOW, dlab_low);
+        outb(port + UART_OFFSET_DIVISOR_LATCH_HIGH, dlab_high);
+        outb(port + UART_OFFSET_LINE_CONTROL, 0x3);
+        outb(port + UART_OFFSET_FIFO_CONTROL, 0xc7);
+        outb(port + UART_OFFSET_MODEM_CONTROL, 0xb);
 
-        // FIXME: to zero
-        outb(self.io_port_base + UART_OFFSET_INTERRUPT_ENABLE, 0x01);
+        outb(port + UART_OFFSET_INTERRUPT_ENABLE, 0x1);
     }
 }
 
 impl core::fmt::Write for Uart {
-    fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
+    fn write_str(&mut self, msg: &str) -> Result<(), core::fmt::Error> {
         const UART_OFFSET_LINE_STATUS: u16 = 5;
+        const UART_OFFSET_LINE_STATUS_THRE: u8 = 1u8 << 5;
         const UART_OFFSET_TRANSMITTER_HOLDING_BUFFER: u16 = 0;
 
-        for c in s.bytes() {
-            while (inb(self.io_port_base + UART_OFFSET_LINE_STATUS) & 0x20) == 0 {}
-            outb(
-                self.io_port_base + UART_OFFSET_TRANSMITTER_HOLDING_BUFFER,
-                c,
-            );
+        for data in msg.bytes() {
+            while (inb(self.port + UART_OFFSET_LINE_STATUS) & UART_OFFSET_LINE_STATUS_THRE) == 0 {
+                core::hint::spin_loop();
+            }
+            outb(self.port + UART_OFFSET_TRANSMITTER_HOLDING_BUFFER, data);
         }
         Ok(())
     }
@@ -141,4 +114,10 @@ fn outb(port: u16, data: u8) {
 
 fn inb(port: u16) -> u8 {
     unsafe { x86::io::inb(port) }
+}
+
+fn apic_id() -> u8 {
+    // See: (AMD) CPUID Fn0000_0001_EBX LocalApicId, LogicalProcessorCount, CLFlush
+    // See: (Intel) Table 3-8. Information Returned by CPUID Instruction
+    (x86::cpuid::cpuid!(0x1).ebx >> 24) as _
 }
