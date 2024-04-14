@@ -303,7 +303,6 @@ impl Vm {
         let idtr = sidt();
         let gdtr = sgdt();
 
-        // TODO: "as u*" vs "as _"
         // FIXME: snapshot should include those registers
 
         // SS reported as 0x0 on VMware time to time. What the heck?
@@ -452,7 +451,7 @@ impl Vm {
         vmwrite(vmcs::host::GS_SELECTOR, gs().bits() & !0x7);
         vmwrite(vmcs::host::TR_SELECTOR, tr.bits() & !0x7);
 
-        vmwrite(vmcs::host::CR0, cr0().bits() as u64); // TODO: "as u*" vs "as _"
+        vmwrite(vmcs::host::CR0, cr0().bits() as u64);
         vmwrite(vmcs::host::CR3, cr3);
         vmwrite(vmcs::host::CR4, cr4().bits() as u64);
 
