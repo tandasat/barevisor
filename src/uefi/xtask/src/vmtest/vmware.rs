@@ -18,7 +18,7 @@ impl TestVm for Vmware {
         let output = UnixCommand::new("dd")
             .args([
                 "if=/dev/zero",
-                "of=/tmp/vmware_cd.img",
+                "of=/tmp/hvclass.img",
                 "bs=1k",
                 "count=2880",
             ])
@@ -28,22 +28,22 @@ impl TestVm for Vmware {
         }
 
         let output = UnixCommand::new("mformat")
-            .args(["-i", "/tmp/vmware_cd.img", "-f", "2880", "::"])
+            .args(["-i", "/tmp/hvclass.img", "-f", "2880", "::"])
             .output()?;
         if !output.status.success() {
             Err(format!("mformat failed: {output:#?}"))?;
         }
 
-        copy_artifacts_to("/tmp/vmware_cd.img", release)?;
+        copy_artifacts_to("/tmp/hvclass.img", release)?;
 
         let output = UnixCommand::new("mkisofs")
             .args([
                 "-eltorito-boot",
-                "vmware_cd.img",
+                "hvclass.img",
                 "-no-emul-boot",
                 "-o",
-                "/tmp/vmware_cd.iso",
-                "/tmp/vmware_cd.img",
+                "/tmp/hvclass.iso",
+                "/tmp/hvclass.img",
             ])
             .output()?;
         if !output.status.success() {
