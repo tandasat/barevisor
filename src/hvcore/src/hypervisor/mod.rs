@@ -7,6 +7,7 @@ pub mod paging_structures;
 pub mod panic;
 pub mod platform_ops;
 mod segment;
+mod serial_logger;
 mod support;
 mod switch_stack;
 mod vmm;
@@ -35,7 +36,7 @@ pub struct SharedData {
 static HV_SHARED_DATA: Once<SharedData> = Once::new();
 
 pub fn virtualize_system(hv_data: SharedData) {
-    init_logger(log::LevelFilter::Info);
+    serial_logger::init(log::LevelFilter::Info);
     log::info!("Virtualizing the all processors");
 
     apic_id::init();
@@ -68,14 +69,4 @@ fn is_our_hypervisor_present() -> bool {
     (regs.ebx == OUR_HV_VENDOR_NAME_EBX)
         && (regs.ecx == OUR_HV_VENDOR_NAME_ECX)
         && (regs.edx == OUR_HV_VENDOR_NAME_EDX)
-}
-
-#[cfg(test)]
-fn init_logger(level: log::LevelFilter) {
-    env_logger::builder().filter_level(level).init();
-}
-
-#[cfg(not(test))]
-fn init_logger(level: log::LevelFilter) {
-    com_logger::builder().base(0x3f8).filter(level).setup();
 }
