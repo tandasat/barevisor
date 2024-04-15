@@ -560,10 +560,14 @@ impl Vm {
         //
         // Actual guest CR0 and CR4 must fulfill requirements for VMX. Apply those.
         //
-        let cr0 = Cr0::from(Cr0::CR0_EXTENSION_TYPE);
-        vmwrite(vmcs::guest::CR0, get_adjusted_guest_cr0(cr0).bits() as u64);
-        let cr4 = Cr4::empty();
-        vmwrite(vmcs::guest::CR4, get_adjusted_guest_cr4(cr4).bits() as u64);
+        vmwrite(
+            vmcs::guest::CR0,
+            get_adjusted_guest_cr0(Cr0::CR0_EXTENSION_TYPE).bits() as u64,
+        );
+        vmwrite(
+            vmcs::guest::CR4,
+            get_adjusted_guest_cr4(Cr4::empty()).bits() as u64,
+        );
 
         let mut access_rights = VmxSegmentAccessRights(0);
         access_rights.set_segment_type(CodeSegmentType::ExecuteReadAccessed as u32);
