@@ -1,7 +1,7 @@
 use crate::DynError;
 use std::{
-    fs::{self},
-    io::{BufRead, BufReader},
+    fs,
+    io::{BufRead, BufReader, Write},
     path::Path,
     process::{Command, Stdio},
     sync::mpsc::channel,
@@ -16,12 +16,7 @@ pub(crate) struct Vmware {}
 impl TestVm for Vmware {
     fn deploy(&self, release: bool) -> Result<(), DynError> {
         let output = UnixCommand::new("dd")
-            .args([
-                "if=/dev/zero",
-                "of=/tmp/hvclass.img",
-                "bs=1k",
-                "count=2880",
-            ])
+            .args(["if=/dev/zero", "of=/tmp/hvclass.img", "bs=1k", "count=2880"])
             .output()?;
         if !output.status.success() {
             Err(format!("dd failed: {output:#?}"))?;
@@ -73,7 +68,7 @@ impl TestVm for Vmware {
             .args(["stop", vmx_path.as_str(), "nogui"])
             .output()?;
 
-        // If the serial output file exists, delete it to avoid a popup
+        // If the serial output file exists, delete it to avoid a prompt.
         let log_file = if cfg!(target_os = "windows") {
             r"\\wsl$\Ubuntu\tmp\serial.log"
         } else {
@@ -83,7 +78,19 @@ impl TestVm for Vmware {
             fs::remove_file(log_file)?;
         }
 
-        // Start the VM
+        // If the "forceSetupOnce" entry is not in the .vmx file already, append
+        // it to boot into the BIOS menu automatically. This entry is automatically
+        // deleted by VMWare after each boot, so we need to add it every time.
+        let entry_name = "bios.forceSetupOnce";
+        let entry_exists = BufReader::new(fs::File::open(&vmx_path)?)
+            .lines()
+            .any(|line| line.unwrap().starts_with(entry_name));
+        if !entry_exists {
+            let mut file = fs::OpenOptions::new().append(true).open(&vmx_path)?;
+            writeln!(file, "{entry_name} = \"TRUE\"")?;
+        }
+
+        // Start the VM.
         println!("🕒 Starting the VMware VM");
         let product_type = if cfg!(target_os = "macos") {
             "fusion"

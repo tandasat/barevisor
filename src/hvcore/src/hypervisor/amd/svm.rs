@@ -95,7 +95,6 @@ impl VirtualMachine for Vm {
     fn new(id: u8) -> Self {
         let vm_data = SHARED_VM_DATA.call_once(SharedVmData::new);
 
-        // TODO: clean up this mess (use new()? )
         let mut vm = Self {
             id: id as usize,
             vmcb: Vmcb::default(),
