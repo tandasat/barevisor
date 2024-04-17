@@ -45,14 +45,14 @@ pub fn virtualize_system(hv_data: SharedData) {
     platform_ops::get().run_on_all_processors(|| {
         let registers = GuestRegisters::new();
         if !is_our_hypervisor_present() {
+            log::info!("Virtualizing the current processor");
             let params = vmm::VCpuParameters {
                 processor_id: processor_id_from(apic_id::get()).unwrap(),
                 registers,
             };
-            log::info!("Virtualizing the processor {}", params.processor_id);
             switch_stack::jump_with_new_stack(&params, vmm::main);
         }
-        log::info!("Virtualized the processor");
+        log::info!("Virtualized the current processor");
     });
 
     log::info!("Virtualized the all processors");
