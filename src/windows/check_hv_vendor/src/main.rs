@@ -1,3 +1,5 @@
+//! The hypervisor vendor checker for Windows.
+
 fn main() {
     println!("Executing CPUID(0x40000000) on all logical processors");
     for core_id in core_affinity::get_core_ids().unwrap() {

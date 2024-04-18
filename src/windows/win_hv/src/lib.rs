@@ -1,6 +1,6 @@
+#![doc = include_str!("../../README.md")]
 #![no_std]
 
-// FIXME: consider deleting this. Allocating from the host is a terrible idea. Or is it?
 extern crate alloc;
 
 mod eprintln;
@@ -24,7 +24,7 @@ extern "system" fn driver_entry(
 ) -> NTSTATUS {
     eprintln!("Loading the win_hv.sys");
 
-    hv::init(Box::new(ops::WindowsOps {}));
+    hv::init_ops(Box::new(ops::WindowsOps {}));
     hv::virtualize_system(hv::SharedData::default());
 
     eprintln!("Loaded the win_hv.sys");

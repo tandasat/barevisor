@@ -18,7 +18,7 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
     println!("Loading the uefi_hv.efi");
 
     allocator::init(&system_table);
-    hv::init(Box::new(ops::UefiOps::new(&system_table)));
+    hv::init_ops(Box::new(ops::UefiOps::new(&system_table)));
 
     if let Err(e) = zap_relocations(system_table.boot_services()) {
         println!("Failed to zap relocations: {e}");
