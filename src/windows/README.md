@@ -10,7 +10,7 @@ Barevisor can be compiled into both UEFI driver and Windows kernel driver. Those
 
 ## Building
 
-Building Barevisor as a Windows kernel-driver requires Windows as a development environment, due to dependencies onto Enterprise WDK (eWDK).
+⚠️Building Barevisor as a Windows kernel-driver requires Windows as a development environment, due to dependencies onto Enterprise WDK (eWDK).
 
 1. Download [eWDK](https://learn.microsoft.com/en-us/legal/windows/hardware/enterprise-wdk-license-2022).
 
@@ -39,7 +39,6 @@ Building Barevisor as a Windows kernel-driver requires Windows as a development 
 
     ```text
     > cargo install cargo-make
-    > cargo make
     ```
 
 6. Build Barevisor.
@@ -66,9 +65,9 @@ Building Barevisor as a Windows kernel-driver requires Windows as a development 
     ```
 
 
-## Loading
+## Loading in a VMware VM
 
-1. Disable secure boot on the target system. It requires a change in BIOS settings and actual steps vary depending on models.
+1. Disable secure boot on the target system. It requires a change in BIOS settings, and actual steps vary depending on models.
 
 2. On target Windows, start the command prompt with Administrators privileges.
 
@@ -96,7 +95,7 @@ Building Barevisor as a Windows kernel-driver requires Windows as a development 
     > sc create barevisor type= kernel binPath= C:\win_hv.sys
     ```
 
-9.  Start Barevisor.
+9. Start Barevisor.
 
     ```text
     > sc start barevisor

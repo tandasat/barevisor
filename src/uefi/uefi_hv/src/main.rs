@@ -15,7 +15,7 @@ use x86::bits64::task::TaskStateSegment;
 #[entry]
 fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
     println::init(&system_table);
-    println!("Loading the uefi_hv.efi");
+    println!("Loading uefi_hv.efi");
 
     allocator::init(&system_table);
     hv::init_ops(Box::new(ops::UefiOps::new(&system_table)));
@@ -54,7 +54,7 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
     };
     hv::virtualize_system(hv_data);
 
-    println!("Loaded the uefi_hv.efi");
+    println!("Loaded uefi_hv.efi");
     Status::SUCCESS
 }
 

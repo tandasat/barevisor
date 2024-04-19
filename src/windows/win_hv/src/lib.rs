@@ -22,12 +22,12 @@ extern "system" fn driver_entry(
     _driver: &mut DRIVER_OBJECT,
     _registry_path: PCUNICODE_STRING,
 ) -> NTSTATUS {
-    eprintln!("Loading the win_hv.sys");
+    eprintln!("Loading win_hv.sys");
 
     hv::init_ops(Box::new(ops::WindowsOps {}));
     hv::virtualize_system(hv::SharedData::default());
 
-    eprintln!("Loaded the win_hv.sys");
+    eprintln!("Loaded win_hv.sys");
     STATUS_SUCCESS
 }
 
