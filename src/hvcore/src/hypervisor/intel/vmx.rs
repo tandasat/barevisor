@@ -201,7 +201,6 @@ impl VirtualMachine for Vm {
 
         // Execute the VM until VM-exit occurs.
         log::trace!("Entering the VM");
-        log::trace!("{:#x?}", self.registers);
         let flags = unsafe { run_vmx_vm(&mut self.registers) };
         if let Err(err) = vmx_succeed(RFlags::from_raw(flags)) {
             panic!("{err}");
@@ -211,7 +210,6 @@ impl VirtualMachine for Vm {
         self.registers.rflags = vmread(vmcs::guest::RFLAGS);
 
         log::trace!("Exited the VM");
-        log::trace!("{:#x?}", self.registers);
 
         // Return VM-exit reason.
         match vmread(vmcs::ro::EXIT_REASON) as u16 {

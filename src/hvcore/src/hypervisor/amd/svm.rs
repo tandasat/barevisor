@@ -63,9 +63,7 @@ impl SharedVmData {
 }
 
 #[derive(Default)]
-pub(crate) struct Svm {
-    //enabled: bool,
-}
+pub(crate) struct Svm;
 
 impl Extension for Svm {
     fn enable(&mut self) {
@@ -145,8 +143,7 @@ impl VirtualMachine for Vm {
         self.vmcb.state_save_area.rsp = self.registers.rsp;
         self.vmcb.state_save_area.rflags = self.registers.rflags;
 
-        log::trace!("Entering the VM {}", self.id);
-        log::trace!("{:#x?}", self.registers);
+        log::trace!("Entering the VM");
 
         // Run the VM until the #VMEXIT occurs.
         unsafe { run_vm_svm(&mut self.registers, self.vmcb_pa, self.host_vmcb_pa) };
@@ -158,8 +155,7 @@ impl VirtualMachine for Vm {
         self.registers.rsp = self.vmcb.state_save_area.rsp;
         self.registers.rflags = self.vmcb.state_save_area.rflags;
 
-        log::trace!("Exited the VM {}", self.id);
-        log::trace!("{:#x?}", self.registers);
+        log::trace!("Exited the VM");
 
         // We might have requested flushing TLB. Clear the request.
         self.vmcb.control_area.tlb_control = TlbControl::DoNotFlush as _;
@@ -387,6 +383,27 @@ impl Vm {
                 let value = 0u32;
                 (value, dest_linear_addr)
             }
+            [0xc7, 0x80, 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, ..] => {
+                // MOV DWORD PTR [RAX+000000B0],00000000
+                self.registers.rip += 10;
+                let dest_linear_addr = self.registers.rax + 0xb0;
+                let value = 0u32;
+                (value, dest_linear_addr)
+            }
+            [0xa3, 0x00, 0x03, 0xe0, 0xfe, 0x00, 0x00, 0x00, 0x00, ..] => {
+                // MOV DWORD PTR [00000000FEE00300],EAX
+                self.registers.rip += 9;
+                let dest_linear_addr = 0xfee0_0300;
+                let value = self.registers.rax as u32;
+                (value, dest_linear_addr)
+            }
+            [0xa3, 0x10, 0x03, 0xe0, 0xfe, 0x00, 0x00, 0x00, 0x00, ..] => {
+                // MOV DWORD PTR [00000000FEE00310],EAX
+                self.registers.rip += 9;
+                let dest_linear_addr = 0xfee0_0310;
+                let value = self.registers.rax as u32;
+                (value, dest_linear_addr)
+            }
             [0x89, 0x90, 0x00, 0x03, 0x00, 0x00, ..] => {
                 // MOV DWORD PTR [RAX+00000300],EDX
                 self.registers.rip += 6;
@@ -415,6 +432,7 @@ impl Vm {
         // If the faulting access is not because of sending Startup IPI (0b110)
         // via the Interrupt Command Register Low (0x300), do the write access
         // the guest wanted to do and bail out.
+        // Table 16-2. APIC Registers
         if !(apic_register == 0x300 && message_type == 0b110) {
             // Safety: GPA is same as PA in our NTPs, and the faulting address
             // is always the local APIC page, which is writable in the host
