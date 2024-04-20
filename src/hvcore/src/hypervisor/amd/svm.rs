@@ -462,7 +462,7 @@ impl Vm {
         let vector = value.get_bits(0..=7) as u8;
         let apic_id = icr_high_value.get_bits(24..=31) as u8;
         let processor_id = processor_id_from(apic_id).unwrap() as usize;
-        log::info!("SIPI to {apic_id} with vector {vector:#x?}");
+        log::debug!("SIPI to {apic_id} with vector {vector:#x?}");
         assert!(vector != GuestActivityState::WaitForSipi as u8);
 
         // Update the activity state of the target processor with the obtained
