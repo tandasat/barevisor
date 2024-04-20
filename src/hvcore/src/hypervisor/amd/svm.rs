@@ -146,7 +146,7 @@ impl VirtualMachine for Vm {
         log::trace!("Entering the VM");
 
         // Run the VM until the #VMEXIT occurs.
-        unsafe { run_vm_svm(&mut self.registers, self.vmcb_pa, self.host_vmcb_pa) };
+        unsafe { svm_run_vm(&mut self.registers, self.vmcb_pa, self.host_vmcb_pa) };
 
         // #VMEXIT occurred. Copy the guest register values from VMCB so that
         // `self.registers` is complete and up to date.
@@ -779,7 +779,7 @@ impl Default for HostStateAreaRaw {
 
 extern "efiapi" {
     /// Runs the guest until #VMEXIT occurs.
-    fn run_vm_svm(registers: &mut GuestRegisters, vmcb_pa: u64, host_vmcb_pa: u64);
+    fn svm_run_vm(registers: &mut GuestRegisters, vmcb_pa: u64, host_vmcb_pa: u64);
 
     /// Saves registers to VMCS
     fn asm_vmsave(vmcb_pa: u64);

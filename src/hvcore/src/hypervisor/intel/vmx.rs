@@ -201,7 +201,7 @@ impl VirtualMachine for Vm {
 
         // Execute the VM until VM-exit occurs.
         log::trace!("Entering the VM");
-        let flags = unsafe { run_vmx_vm(&mut self.registers) };
+        let flags = unsafe { vmx_run_vm(&mut self.registers) };
         if let Err(err) = vmx_succeed(RFlags::from_raw(flags)) {
             panic!("{err}");
         }
@@ -690,10 +690,10 @@ impl Vm {
 
 extern "efiapi" {
     /// Runs the VM until VM-exit occurs.
-    fn run_vmx_vm(registers: &mut GuestRegisters) -> u64;
+    fn vmx_run_vm(registers: &mut GuestRegisters) -> u64;
 }
 global_asm!(include_str!("../capture_registers.inc"));
-global_asm!(include_str!("run_vmx_vm.S"));
+global_asm!(include_str!("vmx_run_vm.S"));
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
