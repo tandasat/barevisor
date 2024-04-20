@@ -41,10 +41,11 @@ impl log::Log for SerialLogger {
 
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
+            let apic_id = apic_id();
             let _ = writeln!(
                 self.port.lock(),
                 "#{}:{:>5}: {} ({}:{})",
-                apic_id(),
+                apic_id,
                 record.level(),
                 record.args(),
                 record.file().unwrap_or("<unknown>"),
