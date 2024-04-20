@@ -6,17 +6,17 @@ A bare minimum hypervisor on AMD and Intel processors for learners.
 ## Features
 
 - ✅ Uses stable Rust🦀
-- ✅ Covers both AMD and Intel with single code
+- ✅ Covers both AMD and Intel processors
 - ✅ Compiles into UEFI and Windows drivers
 - ✅ Runs on Bochs and VMware with one shortcut key
 - ✅ Supports select hardware models
-- ✅ Builds on 📎Windows, 🍎macOS and 🐧Ubuntu
+- ✅ Builds on 🪟Windows, 🍎macOS and 🐧Ubuntu
 - ✅ Comes with extensive comments
 
 
 ## Motivation
 
-The primary goal of this project is to educate how hardware-assisted virtualization technologies on x86 work and can be used to "hyperjack" Windows and UEFI.
+The primary goal of this project is to provide simple code demonstrate how hardware-assisted virtualization technologies on x86 work and can be used to "hyperjack" UEFI and Windows.
 
 
 ## Package organization
@@ -53,6 +53,12 @@ This project's is optimize for learning Intel VT-x and AMD SVM, and thus, a few 
 
 - Greater compatibility
 
-    Barevisor aims to support hyperjacking and booting UEFI and Windows on VMware, Bochs and the select hardware models, precisely. It handles edge cases only when required complexity is low.
+    Barevisor aims to support hyperjacking and booting UEFI and Windows on VMware, Bochs and the select hardware models, precisely. It handles cases only when required complexity is low.
 
-Having written hypervisors many (many) times for teaching, I am comfortable to say that the hardest part of learning hardware-assisted virtualization technologies is getting started and understanding the foundation. As you learn the building blocks and motivated, it is easier to get started to cover the listed missing features as you need. Even, some are not interested in some or any of those features. If you are interested in more about those features, contact me for discussion and references. I offer a 4-day long training course covering some of those as well.
+Having written hypervisors many (many) times for teaching, I am confident to say that the hardest part of learning hardware-assisted virtualization technologies is getting started and understanding the foundation. As you learn the building blocks and motivated, it is easier to get started to cover the listed missing features as you need. Even, some are not interested in some or any of those features. If you are interested in more about those features, contact me for discussion and references. I offer a [4-day long training course](https://tandasat.github.io/) covering many of those as well.
+
+
+## Supported hardware models
+
+- Intel: [11TNHi5 Full with 9-pin to DE-9P](https://simplynuc.com/product/nuc11tnhi5-full/)
+- AMD: [LLM1v6SQ](https://simplynuc.com/product/llm1v6sq/)
