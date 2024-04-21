@@ -39,6 +39,8 @@ pub fn virtualize_system(hv_data: SharedData) {
     serial_logger::init(log::LevelFilter::Info);
     log::info!("Virtualizing the all processors");
 
+    // TODO: Check the existence of our hv
+
     apic_id::init();
     let _ = SHARED_HV_DATA.call_once(|| hv_data);
 
