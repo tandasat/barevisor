@@ -5,7 +5,7 @@ extern crate alloc;
 
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-use alloc::{format, string::String};
+use alloc::string::String;
 use uefi::{prelude::*, proto::pi::mp::MpServices};
 use uefi_services::{println, system_table};
 
@@ -33,7 +33,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
         let vendor = if vec.iter().all(|&byte| (0x20..=0x7e).contains(&byte)) {
             String::from_utf8(vec).unwrap()
         } else {
-            format!("{vec:02x?}")
+            String::new()
         };
         println!("CPU{core_id:2}: {vendor}");
     }) {
