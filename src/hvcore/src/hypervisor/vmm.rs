@@ -94,8 +94,8 @@ fn handle_cpuid<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
         regs.ecx = OUR_HV_VENDOR_NAME_ECX;
         regs.edx = OUR_HV_VENDOR_NAME_EDX;
     } else if leaf == 1 {
-        // CPUID.1.ECX[5] indicates if VT-x is supported. Clear this on this
-        // processor to prevent other hypervisor tries to use it.
+        // On the Intel processor, CPUID.1.ECX[5] indicates if VT-x is supported.
+        // Clear this to prevent other hypervisor tries to use it.
         // See: Table 3-10. Feature Information Returned in the ECX Register
         regs.ecx &= !(1 << 5);
     } else if leaf == HV_CPUID_INTERFACE {
