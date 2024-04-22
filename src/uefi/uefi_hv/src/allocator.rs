@@ -45,7 +45,6 @@ unsafe impl GlobalAlloc for BootTimeAllocator {
         // If the requested alignment is a multiple of 4KB, use `allocate_pages`
         // which allocates 4KB aligned memory with 4KB granularity.
         if (align % 0x1000) == 0 {
-            x86::io::outb(0x3f8, b'@');
             system_table()
                 .boot_services()
                 .allocate_pages(
@@ -55,7 +54,6 @@ unsafe impl GlobalAlloc for BootTimeAllocator {
                 )
                 .unwrap_or(0) as *mut u8
         } else if align > 8 {
-            x86::io::outb(0x3f8, b'.');
             // Allocate more space for alignment.
             let Ok(ptr) = system_table()
                 .boot_services()
@@ -73,7 +71,6 @@ unsafe impl GlobalAlloc for BootTimeAllocator {
             unsafe { return_ptr.cast::<*mut u8>().sub(1).write(ptr) };
             return_ptr
         } else {
-            x86::io::outb(0x3f8, b'*');
             system_table()
                 .boot_services()
                 .allocate_pool(MemoryType::RUNTIME_SERVICES_DATA, size)
