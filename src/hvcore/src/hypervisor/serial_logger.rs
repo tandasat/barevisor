@@ -1,16 +1,19 @@
 // https://github.com/iankronquist/rustyvisor/tree/83b53ac104d85073858ba83326a28a6e08d1af12/pcuart
 // https://wiki.osdev.org/Serial_Ports
 
-use core::fmt::Write;
+use core::{fmt::Write, ptr::addr_of, sync::atomic::AtomicU8};
 use spin::{Mutex, Once};
 use x86::bits64::rflags;
 
 static LOGGER: Once<SerialLogger> = Once::new();
 
-pub(crate) fn init(level: log::LevelFilter) {
+pub(crate) fn init(level: log::LevelFilter) -> u64 {
     let logger = LOGGER.call_once(SerialLogger::new);
     log::set_logger(logger).unwrap();
     log::set_max_level(level);
+
+    let addr = { addr_of!(logger.port.lock().blocks) };
+    addr as _
 }
 
 #[allow(dead_code)]
@@ -47,6 +50,8 @@ impl log::Log for SerialLogger {
             // from the VM and the VMM reentering this code.
             let _int_guard = InterruptDisabled::new();
             let mut uart = self.port.lock();
+            Uart::init(uart.port, 115200);
+            //let _ = writeln!(uart, "{}", record.args());
             let _ = writeln!(uart, "#{apic_id}:{:5}: {}", record.level(), record.args());
         }
     }
@@ -54,8 +59,20 @@ impl log::Log for SerialLogger {
     fn flush(&self) {}
 }
 
-#[derive(Default)]
+#[repr(C)]
+struct Block {
+    block: [u8; 32],
+}
+impl Default for Block {
+    fn default() -> Self {
+        Self { block: [0; 32] }
+    }
+}
+
+#[repr(C, align(4096))]
 struct Uart {
+    blocks: [Block; 128],
+    index: AtomicU8,
     port: u16,
 }
 
@@ -63,10 +80,14 @@ impl Uart {
     fn new(port: SerialPort, baud_rate: u64) -> Self {
         let port = port as u16;
         Self::init(port, baud_rate);
-        Self { port }
+        Self {
+            blocks: core::array::from_fn(|_| Block::default()),
+            index: AtomicU8::new(0),
+            port,
+        }
     }
 
-    fn init(port: u16, baud_rate: u64) {
+    pub fn init(port: u16, baud_rate: u64) {
         const UART_OFFSET_DIVISOR_LATCH_LOW: u16 = 0;
         const UART_OFFSET_INTERRUPT_ENABLE: u16 = 1;
         const UART_OFFSET_DIVISOR_LATCH_HIGH: u16 = 1;
@@ -101,6 +122,19 @@ impl core::fmt::Write for Uart {
                 core::hint::spin_loop();
             }
             outb(self.port + UART_OFFSET_TRANSMITTER_HOLDING_BUFFER, data);
+        }
+
+        if msg.len() != 1 {
+            let mut i = self
+                .index
+                .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+            if i == 128 {
+                i = 0;
+                self.index.store(1, core::sync::atomic::Ordering::Relaxed);
+            }
+            let block = &mut self.blocks[i as usize].block;
+            let length = core::cmp::min(31, msg.len());
+            unsafe { core::ptr::copy_nonoverlapping(msg.as_ptr(), block.as_mut_ptr(), length) };
         }
         Ok(())
     }

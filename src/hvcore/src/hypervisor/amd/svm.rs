@@ -159,6 +159,7 @@ impl VirtualMachine for Vm {
 
         // We might have requested flushing TLB. Clear the request.
         self.vmcb.control_area.tlb_control = TlbControl::DoNotFlush as _;
+        self.vmcb.control_area.vmcb_clean = u32::MAX;
 
         // Handle #VMEXIT by translating it to the `VmExitReason` type.
         //
@@ -196,17 +197,6 @@ impl VirtualMachine for Vm {
     }
 }
 
-/// Table 15-9. TLB Control Byte Encodings
-#[allow(dead_code)]
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum TlbControl {
-    DoNotFlush = 0x0,
-    FlushAll = 0x1,
-    FlushGuests = 0x3,
-    FlushGuestsNonGlobal = 0x7,
-}
-
 impl Vm {
     fn handle_security_exception(&mut self) {
         assert!(self.id != 0);
@@ -227,7 +217,7 @@ impl Vm {
                 == GuestActivityState::Active as u8
         );
 
-        log::trace!("INIT");
+        log::debug!("INIT");
 
         // Extension Type
         // Not Write-through
@@ -304,14 +294,12 @@ impl Vm {
         self.vmcb.state_save_area.dr6 = 0xffff0ff0;
         self.vmcb.state_save_area.dr7 = 0x400;
 
-        // TLB and clean bits
+        self.vmcb.control_area.tlb_control = TlbControl::FlushAll as _;
+        self.vmcb.control_area.vmcb_clean = 0;
     }
 
     fn wait_for_sipi(&self) -> u8 {
         assert!(self.id != 0);
-        assert!(
-            self.activity_state.load(Ordering::Relaxed) == GuestActivityState::WaitForSipi as u8
-        );
 
         // Wait for SIPI sent from BSP.
         while self.activity_state.load(Ordering::Relaxed) == GuestActivityState::WaitForSipi as u8 {
@@ -326,7 +314,7 @@ impl Vm {
     fn handle_sipi(&mut self, vector: u8) {
         assert!(self.id != 0);
         assert!(self.activity_state.load(Ordering::Relaxed) == GuestActivityState::Active as u8);
-        log::trace!("SIPI vector {vector:#x?}");
+        log::debug!("SIPI vector {vector:#x?}");
 
         self.vmcb.state_save_area.cs_selector = (vector as u16) << 8;
         self.vmcb.state_save_area.cs_base = (vector as u64) << 12;
@@ -361,82 +349,69 @@ impl Vm {
             )
         };
 
-        let (value, dest_linear_addr) = match instructions {
-            [0x45, 0x89, 0x65, 0x00, ..] => {
-                // MOV DWORD PTR [R13+00],R12D
-                self.registers.rip += 4;
-                let dest_linear_addr = self.registers.r13;
-                let value = self.registers.r12 as u32;
-                (value, dest_linear_addr)
-            }
-            [0x41, 0x89, 0x14, 0x00, ..] => {
-                // MOV DWORD PTR [R8+RAX],EDX
-                self.registers.rip += 4;
-                let dest_linear_addr = self.registers.r8 + self.registers.rax;
-                let value = self.registers.rdx as u32;
-                (value, dest_linear_addr)
-            }
-            [0xc7, 0x81, 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, ..] => {
-                // MOV DWORD PTR [RCX+000000B0],00000000
-                self.registers.rip += 10;
-                let dest_linear_addr = self.registers.rcx + 0xb0;
-                let value = 0u32;
-                (value, dest_linear_addr)
-            }
-            [0xc7, 0x80, 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, ..] => {
-                // MOV DWORD PTR [RAX+000000B0],00000000
-                self.registers.rip += 10;
-                let dest_linear_addr = self.registers.rax + 0xb0;
-                let value = 0u32;
-                (value, dest_linear_addr)
-            }
-            [0xa3, 0x00, 0x03, 0xe0, 0xfe, 0x00, 0x00, 0x00, 0x00, ..] => {
-                // MOV DWORD PTR [00000000FEE00300],EAX
-                self.registers.rip += 9;
-                let dest_linear_addr = 0xfee0_0300;
-                let value = self.registers.rax as u32;
-                (value, dest_linear_addr)
-            }
-            [0xa3, 0x10, 0x03, 0xe0, 0xfe, 0x00, 0x00, 0x00, 0x00, ..] => {
-                // MOV DWORD PTR [00000000FEE00310],EAX
-                self.registers.rip += 9;
-                let dest_linear_addr = 0xfee0_0310;
-                let value = self.registers.rax as u32;
-                (value, dest_linear_addr)
-            }
-            [0x89, 0x90, 0x00, 0x03, 0x00, 0x00, ..] => {
-                // MOV DWORD PTR [RAX+00000300],EDX
-                self.registers.rip += 6;
-                let dest_linear_addr = self.registers.rax + 0x300;
-                let value = self.registers.rdx as u32;
-                (value, dest_linear_addr)
-            }
-            [0x89, 0x88, 0x10, 0x03, 0x00, 0x00, ..] => {
-                // MOV DWORD PTR [RAX+00000310],ECX
-                self.registers.rip += 6;
-                let dest_linear_addr = self.registers.rax + 0x310;
-                let value = self.registers.rcx as u32;
-                (value, dest_linear_addr)
-            }
-            _ => {
-                log::error!("{:#x?}", self.registers);
-                panic!("Unhandled APIC access instructions: {:02x?}", instructions);
+        let (value, instr_len) = if instructions
+            .starts_with(&[0xc7, 0x80, 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        {
+            // MOV DWORD PTR [RAX+000000B0],00000000
+            (0u32, 10u64)
+        } else {
+            match instructions {
+                [0x45, 0x89, 0x65, 0x00, ..] => {
+                    // MOV DWORD PTR [R13],R12D
+                    (self.registers.r12 as _, 4)
+                }
+                [0x41, 0x89, 0x14, 0x00, ..] => {
+                    // MOV DWORD PTR [R8+RAX],EDX
+                    (self.registers.rdx as _, 4)
+                }
+                [0xc7, 0x81, 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, ..] => {
+                    // MOV DWORD PTR [RCX+000000B0],00000000
+                    (0, 10)
+                }
+                [0xa3, 0x00, 0x03, 0xe0, 0xfe, 0x00, 0x00, 0x00, 0x00, ..] => {
+                    // MOV DWORD PTR [00000000FEE00300],EAX
+                    (self.registers.rax as _, 9)
+                }
+                [0xa3, 0x10, 0x03, 0xe0, 0xfe, 0x00, 0x00, 0x00, 0x00, ..] => {
+                    // MOV DWORD PTR [00000000FEE00310],EAX
+                    (self.registers.rax as _, 9)
+                }
+                [0x89, 0x90, 0x00, 0x03, 0x00, 0x00, ..] => {
+                    // MOV DWORD PTR [RAX+00000300],EDX
+                    (self.registers.rdx as _, 6)
+                }
+                [0x89, 0x88, 0x10, 0x03, 0x00, 0x00, ..] => {
+                    // MOV DWORD PTR [RAX+00000310],ECX
+                    (self.registers.rcx as _, 6)
+                }
+                _ => {
+                    log::error!("{:#x?}", self.registers);
+                    panic!("Unhandled APIC access instructions: {:02x?}", instructions);
+                }
             }
         };
 
+        self.registers.rip += instr_len;
+
         let faulting_gpa = self.vmcb.control_area.exit_info2;
         let apic_register = faulting_gpa & 0xfff;
-        let message_type = value.get_bits(8..=10);
-        log::trace!("VA:{dest_linear_addr:#x} / PA:{faulting_gpa:#x} <= {value:#x}");
+        if apic_register != 0xb0 {
+            //log::debug!("APIC reg:{apic_register:#x} <= {value:#x}");
+        }
 
         // If the faulting access is not because of sending Startup IPI (0b110)
         // via the Interrupt Command Register Low (0x300), do the write access
         // the guest wanted to do and bail out.
         // Table 16-2. APIC Registers
-        if !(apic_register == 0x300 && message_type == 0b110) {
+        if apic_register != 0x300 {
             // Safety: GPA is same as PA in our NTPs, and the faulting address
             // is always the local APIC page, which is writable in the host
             // address space.
+            unsafe { *(faulting_gpa as *mut u32) = value };
+            return;
+        }
+        let message_type = value.get_bits(8..=10);
+        if message_type != 0b110 {
             unsafe { *(faulting_gpa as *mut u32) = value };
             return;
         }
@@ -467,7 +442,10 @@ impl Vm {
 
         // Update the activity state of the target processor with the obtained
         // vector value. The target processor should get out from the busy loop
-        // after this.
+        // after this. Note that it is possible that the target processor is not
+        // yet in the WaitForSipi state when #VMEXIT(#SX) has not been processed.
+        // It is fine, as SIPI will be sent twice, and almost certain that 2nd
+        // SIPI is late enough.
         let shared_vm_data = SHARED_VM_DATA.get().unwrap();
         let activity_state = &shared_vm_data.activity_states[processor_id];
         let _ = activity_state.compare_exchange(
@@ -576,6 +554,17 @@ impl Vm {
     }
 }
 
+/// Table 15-9. TLB Control Byte Encodings
+#[allow(dead_code)]
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum TlbControl {
+    DoNotFlush = 0x0,
+    FlushAll = 0x1,
+    FlushGuests = 0x3,
+    FlushGuestsNonGlobal = 0x7,
+}
+
 #[derive(Debug, derive_deref::Deref, derive_deref::DerefMut)]
 struct Vmcb {
     ptr: Box<VmcbRaw>,
@@ -638,7 +627,8 @@ struct ControlArea {
     event_inj: u64,           // +0x0a8
     ncr3: u64,                // +0x0b0
     lbr_virtualization_enable: u64, // +0x0b8
-    vmcb_clean: u64,          // +0x0c0
+    vmcb_clean: u32,          // +0x0c0
+    _reserved: u32,           // +0x0c4
     nrip: u64,                // +0x0c8
     num_of_bytes_fetched: u8, // +0x0d0
     guest_instruction_bytes: [u8; 15], // +0x0d1

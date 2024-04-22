@@ -36,7 +36,8 @@ pub struct SharedData {
 static SHARED_HV_DATA: Once<SharedData> = Once::new();
 
 pub fn virtualize_system(hv_data: SharedData) {
-    serial_logger::init(log::LevelFilter::Info);
+    let x = serial_logger::init(log::LevelFilter::Debug);
+    log::info!("Buffer @ {x:#x?}");
     log::info!("Virtualizing the all processors");
 
     // TODO: Check the existence of our hv
@@ -45,8 +46,11 @@ pub fn virtualize_system(hv_data: SharedData) {
     let _ = SHARED_HV_DATA.call_once(|| hv_data);
 
     platform_ops::get().run_on_all_processors(|| {
+        let mut done = false;
         let registers = GuestRegisters::new();
-        if !is_our_hypervisor_present() {
+        if !done {
+            // !is_our_hypervisor_present() {
+            done = true;
             log::info!("Virtualizing the current processor");
             let params = vmm::VCpuParameters {
                 processor_id: processor_id_from(apic_id::get()).unwrap(),
