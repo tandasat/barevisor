@@ -22,8 +22,8 @@ bench = false
 
 [dependencies]
 hv = { path = "../../hvcore" }
+spin = "0.9"
 wdk = "0.2"
-wdk-alloc = "0.2"
 wdk-sys = "0.2"
 
 [build-dependencies]
