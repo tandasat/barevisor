@@ -1,3 +1,4 @@
+pub mod allocator;
 mod amd;
 mod apic_id;
 mod capture_registers;

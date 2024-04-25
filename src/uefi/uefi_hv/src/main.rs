@@ -3,13 +3,15 @@
 
 extern crate alloc;
 
-mod allocator;
 mod ops;
 mod println;
 
 use alloc::{boxed::Box, vec::Vec};
 use hv::{GdtTss, PagingStructures};
-use uefi::prelude::*;
+use uefi::{
+    prelude::*,
+    table::boot::{AllocateType, MemoryType},
+};
 use x86::bits64::task::TaskStateSegment;
 
 #[entry]
@@ -17,7 +19,16 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
     println::init(&system_table);
     println!("Loading uefi_hv.efi");
 
-    allocator::init(&system_table);
+    let ptr = system_table
+        .boot_services()
+        .allocate_pages(
+            AllocateType::AnyPages,
+            MemoryType::RUNTIME_SERVICES_DATA,
+            hv::allocator::ALLOCATION_PAGES,
+        )
+        .unwrap_or(0) as *mut u8;
+    hv::allocator::init(ptr);
+
     hv::init_ops(Box::new(ops::UefiOps::new(&system_table)));
 
     if let Err(e) = zap_relocations(system_table.boot_services()) {
