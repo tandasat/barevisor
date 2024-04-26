@@ -1,9 +1,8 @@
 use core::arch::global_asm;
 
-/// The collection of the guest general purpose register values.
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(C)]
-pub(crate) struct GuestRegisters {
+pub(crate) struct Registers {
     pub(crate) rax: u64,
     pub(crate) rbx: u64,
     pub(crate) rcx: u64,
@@ -29,12 +28,12 @@ pub(crate) struct GuestRegisters {
     pub(crate) xmm4: Xmm,
     pub(crate) xmm5: Xmm,
 }
-const _: () = assert!(core::mem::size_of::<GuestRegisters>() == 0xf0);
+const _: () = assert!(core::mem::size_of::<Registers>() == 0xf0);
 
-impl GuestRegisters {
+impl Registers {
     #[inline(always)]
-    pub(crate) fn new() -> Self {
-        let mut registers = GuestRegisters::default();
+    pub(crate) fn capture_current() -> Self {
+        let mut registers = Registers::default();
         unsafe { capture_registers(&mut registers) };
         registers
     }
@@ -50,7 +49,7 @@ pub(crate) struct Xmm {
 
 extern "efiapi" {
     /// Captures current register values.
-    fn capture_registers(registers: &mut GuestRegisters);
+    fn capture_registers(registers: &mut Registers);
 }
 global_asm!(include_str!("capture_registers.inc"));
 global_asm!(include_str!("capture_registers.S"));

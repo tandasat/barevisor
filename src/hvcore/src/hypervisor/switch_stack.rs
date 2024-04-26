@@ -22,7 +22,6 @@ pub(crate) fn jump_with_new_stack(
     unsafe { switch_stack(params, destination as *const () as _, stack_base) };
 }
 
-// TOOD: consider `extern "C"` or something more generic. No need to be efiapi at all
 extern "efiapi" {
     /// Jumps to the landing code with the new stack pointer.
     fn switch_stack(regs: &VCpuParameters, landing_code: usize, stack_base: u64) -> !;

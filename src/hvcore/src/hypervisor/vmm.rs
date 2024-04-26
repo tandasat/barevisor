@@ -4,7 +4,7 @@ use x86::{
 };
 
 use crate::hypervisor::{
-    capture_registers::GuestRegisters,
+    registers::Registers,
     x86_instructions::{cr4, cr4_write, rdmsr, wrmsr, xsetbv},
     HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS, OUR_HV_VENDOR_NAME_EBX,
     OUR_HV_VENDOR_NAME_ECX, OUR_HV_VENDOR_NAME_EDX,
@@ -24,9 +24,9 @@ pub(crate) trait Extension {
 pub(crate) trait VirtualMachine {
     fn new(id: u8) -> Self;
     fn activate(&mut self);
-    fn initialize(&mut self, registers: &GuestRegisters);
+    fn initialize(&mut self, registers: &Registers);
     fn run(&mut self) -> VmExitReason;
-    fn regs(&mut self) -> &mut GuestRegisters;
+    fn regs(&mut self) -> &mut Registers;
 }
 
 pub(crate) struct InstructionInfo {
@@ -46,9 +46,10 @@ pub(crate) enum VmExitReason {
 #[repr(C)]
 pub(crate) struct VCpuParameters {
     pub(crate) processor_id: u8,
-    pub(crate) registers: GuestRegisters,
+    pub(crate) registers: Registers,
 }
 
+/// The entry point of the hypervisor.
 pub(crate) fn main(params: &VCpuParameters) -> ! {
     if x86::cpuid::CpuId::new().get_vendor_info().unwrap().as_str() == "GenuineIntel" {
         virtualize_core::<Intel>(params)
@@ -57,20 +58,23 @@ pub(crate) fn main(params: &VCpuParameters) -> ! {
     }
 }
 
+// Enables a virtualization extension, sets up and runs the VM indefinitely.
 fn virtualize_core<T: Architecture>(params: &VCpuParameters) -> ! {
     log::info!("Initializing the VM");
 
+    // Enable processor's virtualization features.
     let mut vt = T::Extension::default();
     vt.enable();
 
-    // Create a new (empty) VM instance and tell the processor to operate on it.
+    // Create a new (empty) VM instance and set up its initial state.
     let vm = &mut T::VirtualMachine::new(params.processor_id);
     vm.activate();
     vm.initialize(&params.registers);
 
+    // Then, run the VM until events that the hypervisor (this code) needs to
+    // handle occurs.
     log::info!("Starting the VM");
     loop {
-        // Then, run the VM until events we (hypervisor) need to handle.
         match vm.run() {
             VmExitReason::Cpuid(info) => handle_cpuid(vm, &info),
             VmExitReason::Rdmsr(info) => handle_rdmsr(vm, &info),
@@ -88,17 +92,19 @@ fn handle_cpuid<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
     log::trace!("CPUID {leaf:#x?} {sub_leaf:#x?}");
     let mut regs = cpuid!(leaf, sub_leaf);
 
-    // Indicate that the hypervisor is present relevant CPUID is asked.
     if leaf == HV_CPUID_VENDOR_AND_MAX_FUNCTIONS {
+        // If the hypervisor vendor name is asked, return our hypervisor name.
         regs.ebx = OUR_HV_VENDOR_NAME_EBX;
         regs.ecx = OUR_HV_VENDOR_NAME_ECX;
         regs.edx = OUR_HV_VENDOR_NAME_EDX;
     } else if leaf == 1 {
         // On the Intel processor, CPUID.1.ECX[5] indicates if VT-x is supported.
-        // Clear this to prevent other hypervisor tries to use it.
+        // Clear this to prevent other hypervisor tries to use it. On AMD, it is
+        // a reserved bit.
         // See: Table 3-10. Feature Information Returned in the ECX Register
         regs.ecx &= !(1 << 5);
     } else if leaf == HV_CPUID_INTERFACE {
+        // If the VM asks whether Hyper-V enlightenment is supported, say no.
         regs.eax = 0;
     }
 
@@ -129,14 +135,13 @@ fn handle_wrmsr<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
 }
 
 fn handle_xsetbv<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
-    let regs = vm.regs();
-    let xcr: u32 = regs.rcx as u32;
-    let value = (regs.rax & 0xffff_ffff) | ((regs.rdx & 0xffff_ffff) << 32);
+    let xcr: u32 = vm.regs().rcx as u32;
+    let value = (vm.regs().rax & 0xffff_ffff) | ((vm.regs().rdx & 0xffff_ffff) << 32);
     let value = Xcr0::from_bits(value).unwrap();
     log::trace!("XSETBV {xcr:#x?} {value:#x?}");
 
     cr4_write(cr4() | Cr4::CR4_ENABLE_OS_XSAVE);
     xsetbv(xcr, value);
 
-    regs.rip = info.next_rip;
+    vm.regs().rip = info.next_rip;
 }
