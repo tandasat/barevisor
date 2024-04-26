@@ -119,13 +119,13 @@ Barevisor can be compiled into both UEFI driver and Windows kernel driver. Those
 3. Create a service for Barevisor.
 
     ```text
-    > sc create barevisor type= kernel binPath= C:\win_hv.sys
+    > sc create hv type= kernel binPath= C:\win_hv.sys
     ```
 
 4. Start Barevisor.
 
     ```text
-    > sc start barevisor
+    > sc start hv
 
     SERVICE_NAME: hv
             TYPE               : 1  KERNEL_DRIVER
