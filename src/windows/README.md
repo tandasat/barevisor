@@ -47,7 +47,7 @@ Barevisor can be compiled into both UEFI driver and Windows kernel driver. Those
     > cargo make
     ```
 
-    If you encounter an error like this, turn on the Developer Mode through Settings > System > For developers > Developer Mode.
+    ⚠️ If you encounter an error like this, turn on the Developer Mode through Settings > System > For developers > Developer Mode.
 
     ```log
     [cargo-make] INFO - Execute Command: "rust-script" "target\\_cargo_make_temp\\persisted_scripts\\D4060E7434B3779E78A683E8BA00D06A5D08BE8C95BC432359E22F06CB30EF1C.rs"
@@ -56,7 +56,7 @@ Barevisor can be compiled into both UEFI driver and Windows kernel driver. Those
     [cargo-make] WARN - Build Failed.
     ```
 
-    If successful, `target\debug\win_hv_package\win_hv.sys` should exist.
+    ✅ If successful, `target\debug\win_hv_package\win_hv.sys` should exist.
 
 7. Optionally, build the `check_hv_vendor` package. This is useful for confirming that Barevisor is loaded into the system (more in the below section).
 
@@ -65,37 +65,62 @@ Barevisor can be compiled into both UEFI driver and Windows kernel driver. Those
     ```
 
 
-## Loading in a VMware VM
+## Setting up a VMware VM
 
-1. Disable secure boot on the target system. It requires a change in BIOS settings, and actual steps vary depending on models.
+1. Install Windows 10 or 11 of any edition. Installation of VMware Tools is optional.
 
-2. On target Windows, start the command prompt with Administrators privileges.
+2. Open "Virtual Machine Settings", then:
+   - In the "Hardware" tab,
+     - Select "Processors" and check "Virtualize Intel VT-x/EPT or AMD-V/RVI".
+     - Delete a "Printer Port" if present. This is required to view serial output from a VMware VM.
+     - Add a "Serial Port" and make sure:
+       - "Connect at power on" is checked
+       - "Use output file:" is selected
+   - In the "Options" tab,
+     - Select "Advanced" and uncheck "Enable secure boot".
 
-3. Enable test signing.
+3. Boot the VM, and start the command prompt with Administrators privileges, then,
+   - Enable test signing.
 
-    ```text
-    > bcdedit /set testsigning on
-    ```
+       ```text
+       > bcdedit /set testsigning on
+       ```
 
-4. Disable the serial service. This is required to view serial output from Barevisor.
+   - Disable the serial service. This is required to view serial output from Barevisor.
 
-    ```text
-    > sc config serial start=disabled
-    ```
+       ```text
+       > sc config serial start=disabled
+       ```
 
-5. Reboot Windows.
+4. Disable Hyper-V:
+   - Turn off
+       - Settings > Privacy & security > Windows Security > Device security > Core isolation details > Memory integrity
 
-6. Copy `win_hv.sys` onto the target Windows, for example, `C:\win_hv.sys`.
+   - On an elevated command prompt, run
+       ```
+       > bcdedit /set hypervisorlaunchtype off
+       ```
 
-7. Start the command prompt with Administrators privileges.
+   - Reboot.
 
-8. Create a service for Barevisor.
+        If Hyper-V is fully disabled, `msinfo32.exe` shows compatibility with hypervisors as below.
+
+        ![](images/01.png)
+
+
+## Loading on and virtualizing a Windows
+
+1. Copy `win_hv.sys` onto the target Windows, for example, `C:\win_hv.sys`.
+
+2. Start the command prompt with Administrators privileges.
+
+3. Create a service for Barevisor.
 
     ```text
     > sc create barevisor type= kernel binPath= C:\win_hv.sys
     ```
 
-9. Start Barevisor.
+4. Start Barevisor.
 
     ```text
     > sc start barevisor
