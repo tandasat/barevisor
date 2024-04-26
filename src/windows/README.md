@@ -2,6 +2,8 @@
 
 Barevisor as a Windows kernel driver for Intel and AMD processors.
 
+![](images/demo.gif)
+
 
 ## Why kernel driver-based hypervisor
 
@@ -105,7 +107,7 @@ Barevisor can be compiled into both UEFI driver and Windows kernel driver. Those
 
         If Hyper-V is fully disabled, `msinfo32.exe` shows compatibility with hypervisors as below.
 
-        ![](images/01.png)
+        ![](images/msinfo32.png)
 
 
 ## Loading on and virtualizing a Windows
