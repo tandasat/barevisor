@@ -28,8 +28,7 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
         )
         .unwrap_or(0) as *mut u8;
     hv::allocator::init(ptr);
-
-    hv::init_ops(Box::new(ops::UefiOps::new(&system_table)));
+    hv::platform_ops::init(Box::new(ops::UefiOps::new(&system_table)));
 
     if let Err(e) = zap_relocations(system_table.boot_services()) {
         println!("Failed to zap relocations: {e}");
@@ -38,7 +37,7 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
 
     // Update an GDT for each processors to include a TSS.
     if x86::cpuid::CpuId::new().get_vendor_info().unwrap().as_str() == "GenuineIntel" {
-        hv::ops().run_on_all_processors(|| {
+        hv::platform_ops::get().run_on_all_processors(|| {
             let new_gdt = Box::leak(Box::new(GdtTss::new_from_current()));
             new_gdt
                 .append_tss(Box::new(TaskStateSegment::new()))
@@ -50,7 +49,7 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
     // Create a host GDT and TSS for each processor from the current GDT and TSS.
     let gdt_tss = Box::new(GdtTss::new_from_current());
     let mut host_gdt_and_tss = Vec::<Box<GdtTss>>::new();
-    for _ in 0..hv::ops().processor_count() {
+    for _ in 0..hv::platform_ops::get().processor_count() {
         host_gdt_and_tss.push(gdt_tss.clone());
     }
 

@@ -29,8 +29,7 @@ extern "system" fn driver_entry(
         )
     };
     hv::allocator::init(ptr.cast::<u8>());
-
-    hv::init_ops(Box::new(ops::WindowsOps {}));
+    hv::platform_ops::init(Box::new(ops::WindowsOps {}));
     hv::virtualize_system(hv::SharedData::default());
 
     eprintln!("Loaded win_hv.sys");

@@ -1,5 +1,6 @@
 use core::ffi::c_void;
 
+use hv::platform_ops::PlatformOps;
 use uefi::{prelude::*, proto::pi::mp::MpServices};
 
 pub(crate) struct UefiOps {
@@ -14,7 +15,7 @@ impl UefiOps {
     }
 }
 
-impl hv::PlatformOps for UefiOps {
+impl PlatformOps for UefiOps {
     fn processor_count(&self) -> u32 {
         let bs = self.system_table.boot_services();
         let handle = bs.get_handle_for_protocol::<MpServices>().unwrap();

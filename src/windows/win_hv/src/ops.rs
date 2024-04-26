@@ -1,4 +1,5 @@
 /// Contains Windows kernel driver-based implementation of [`hv::PlatformOps`].
+use hv::platform_ops::PlatformOps;
 use wdk_sys::{
     ntddk::{
         KeGetCurrentIrql, KeGetProcessorNumberFromIndex, KeQueryActiveProcessorCountEx,
@@ -9,7 +10,7 @@ use wdk_sys::{
 
 pub(crate) struct WindowsOps;
 
-impl hv::PlatformOps for WindowsOps {
+impl PlatformOps for WindowsOps {
     fn processor_count(&self) -> u32 {
         unsafe { KeQueryActiveProcessorCountEx(u16::try_from(ALL_PROCESSOR_GROUPS).unwrap()) }
     }
