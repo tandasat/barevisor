@@ -2,6 +2,8 @@
 
 Barevisor as a UEFI driver for Intel and AMD processors.
 
+![](images/demo.gif)
+
 
 ## Why UEFI driver-based hypervisor
 
