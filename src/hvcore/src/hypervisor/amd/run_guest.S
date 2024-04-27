@@ -1,4 +1,4 @@
-;// The module containing the `svm_run_vm` function.
+;// The module containing the `run_svm_guest` function.
 
 
 
@@ -35,9 +35,9 @@ asm_vmsave:
 ;// See: 15.5 VMRUN Instruction
 ;//      15.6 #VMEXIT
 ;//
-;// extern "C" fn svm_run_vm(registers: &mut GuestRegisters, vmcb_pa: u64);
-.global svm_run_vm
-svm_run_vm:
+;// extern "C" fn run_svm_guest(registers: &mut GuestRegisters, vmcb_pa: u64);
+.global run_svm_guest
+run_svm_guest:
     xchg    bx, bx
 
     ;// Save current (host) general purpose registers onto stack.

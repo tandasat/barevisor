@@ -134,7 +134,7 @@ impl Guest for SvmGuest {
         log::trace!("Entering the guest");
 
         // Run the guest until the #VMEXIT occurs.
-        unsafe { svm_run_vm(&mut self.registers, self.vmcb_pa, self.host_vmcb_pa) };
+        unsafe { run_svm_guest(&mut self.registers, self.vmcb_pa, self.host_vmcb_pa) };
 
         // #VMEXIT occurred. Copy the guest register values from VMCB so that
         // `self.registers` is complete and up to date.
@@ -757,7 +757,7 @@ impl Default for HostStateAreaRaw {
 
 extern "C" {
     /// Runs the guest until #VMEXIT occurs.
-    fn svm_run_vm(registers: &mut Registers, vmcb_pa: u64, host_vmcb_pa: u64);
+    fn run_svm_guest(registers: &mut Registers, vmcb_pa: u64, host_vmcb_pa: u64);
 
     /// Saves registers to VMCS
     fn asm_vmsave(vmcb_pa: u64);

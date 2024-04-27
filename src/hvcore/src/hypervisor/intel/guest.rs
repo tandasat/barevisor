@@ -98,7 +98,7 @@ impl Guest for VmxGuest {
 
         // Execute the guest until VM-exit occurs.
         log::trace!("Entering the guest");
-        let flags = unsafe { vmx_run_vm(&mut self.registers) };
+        let flags = unsafe { run_vmx_guest(&mut self.registers) };
         if let Err(err) = vmx_succeed(RFlags::from_raw(flags)) {
             panic!("{err}");
         }
@@ -587,7 +587,7 @@ impl VmxGuest {
 
 extern "C" {
     /// Runs the guest until VM-exit occurs.
-    fn vmx_run_vm(registers: &mut Registers) -> u64;
+    fn run_vmx_guest(registers: &mut Registers) -> u64;
 }
 global_asm!(include_str!("../capture_registers.inc"));
 global_asm!(include_str!("run_guest.S"));

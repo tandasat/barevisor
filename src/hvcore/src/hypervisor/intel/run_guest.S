@@ -1,4 +1,4 @@
-;// The module containing the `vmx_run_vm` function.
+;// The module containing the `run_vmx_guest` function.
 
 ;// Runs the guest until VM-exit occurs.
 ;//
@@ -21,9 +21,9 @@
 ;// On VM-exit, the processor comes back to this function (at "VmExit") because
 ;// the host RIP is configured so.
 ;//
-;// extern "C" fn vmx_run_vm(registers: &mut GuestRegisters) -> u64;
-.global vmx_run_vm
-vmx_run_vm:
+;// extern "C" fn run_vmx_guest(registers: &mut GuestRegisters) -> u64;
+.global run_vmx_guest
+run_vmx_guest:
     xchg    bx, bx
 
     ;// Save current (host) general purpose registers onto stack.
