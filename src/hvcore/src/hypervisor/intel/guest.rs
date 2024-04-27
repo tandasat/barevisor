@@ -9,9 +9,9 @@ use x86::{
 };
 
 use crate::hypervisor::{
+    host::{Guest, InstructionInfo, VmExitReason},
     platform_ops,
     support::zeroed_box,
-    vmm::{InstructionInfo, VirtualMachine, VmExitReason},
     x86_instructions::{cr0, cr4, rdmsr},
 };
 
@@ -47,13 +47,13 @@ struct SharedVmData {
 /// A collection of data that the hypervisor depends on for its entire lifespan.
 static SHARED_VM_DATA: Once<SharedVmData> = Once::new();
 
-pub(crate) struct Vm {
+pub(crate) struct VmxGuest {
     registers: Registers,
     id: usize,
     vmcs: Vmcs,
 }
 
-impl VirtualMachine for Vm {
+impl Guest for VmxGuest {
     fn new(id: u8) -> Self {
         let _ = SHARED_VM_DATA.call_once(|| {
             let mut epts = zeroed_box::<Epts>();
@@ -96,8 +96,8 @@ impl VirtualMachine for Vm {
         vmwrite(vmcs::guest::RSP, self.registers.rsp);
         vmwrite(vmcs::guest::RFLAGS, self.registers.rflags);
 
-        // Execute the VM until VM-exit occurs.
-        log::trace!("Entering the VM");
+        // Execute the guest until VM-exit occurs.
+        log::trace!("Entering the guest");
         let flags = unsafe { vmx_run_vm(&mut self.registers) };
         if let Err(err) = vmx_succeed(RFlags::from_raw(flags)) {
             panic!("{err}");
@@ -106,7 +106,7 @@ impl VirtualMachine for Vm {
         self.registers.rsp = vmread(vmcs::guest::RSP);
         self.registers.rflags = vmread(vmcs::guest::RFLAGS);
 
-        log::trace!("Exited the VM");
+        log::trace!("Exited the guest");
 
         // Return VM-exit reason.
         match vmread(vmcs::ro::EXIT_REASON) as u16 {
@@ -145,7 +145,7 @@ impl VirtualMachine for Vm {
     }
 }
 
-impl Vm {
+impl VmxGuest {
     fn initialize_control(&self) {
         vmwrite(
             vmcs::control::VMEXIT_CONTROLS,
@@ -586,11 +586,11 @@ impl Vm {
 }
 
 extern "C" {
-    /// Runs the VM until VM-exit occurs.
+    /// Runs the guest until VM-exit occurs.
     fn vmx_run_vm(registers: &mut Registers) -> u64;
 }
 global_asm!(include_str!("../capture_registers.inc"));
-global_asm!(include_str!("vmx_run_vm.S"));
+global_asm!(include_str!("run_guest.S"));
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]

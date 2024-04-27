@@ -1,12 +1,12 @@
-use super::vmm::Architecture;
+use super::host::Architecture;
 
+mod guest;
 mod npts;
 mod svm;
-mod svm_vm;
 
 pub(crate) struct Amd;
 
 impl Architecture for Amd {
-    type Extension = svm::Svm;
-    type VirtualMachine = svm_vm::Vm;
+    type VirtualizationExtension = svm::Svm;
+    type Guest = guest::SvmGuest;
 }

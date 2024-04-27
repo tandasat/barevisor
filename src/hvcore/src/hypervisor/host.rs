@@ -13,15 +13,15 @@ use crate::hypervisor::{
 use super::{amd::Amd, intel::Intel};
 
 pub(crate) trait Architecture {
-    type Extension: Extension + Default;
-    type VirtualMachine: VirtualMachine;
+    type VirtualizationExtension: Extension;
+    type Guest: Guest;
 }
 
-pub(crate) trait Extension {
+pub(crate) trait Extension: Default {
     fn enable(&mut self);
 }
 
-pub(crate) trait VirtualMachine {
+pub(crate) trait Guest {
     fn new(id: u8) -> Self;
     fn activate(&mut self);
     fn initialize(&mut self, registers: &Registers);
@@ -44,13 +44,13 @@ pub(crate) enum VmExitReason {
 }
 
 #[repr(C)]
-pub(crate) struct VCpuParameters {
+pub(crate) struct GuestParameters {
     pub(crate) processor_id: u8,
     pub(crate) registers: Registers,
 }
 
 /// The entry point of the hypervisor.
-pub(crate) fn main(params: &VCpuParameters) -> ! {
+pub(crate) fn main(params: &GuestParameters) -> ! {
     if x86::cpuid::CpuId::new().get_vendor_info().unwrap().as_str() == "GenuineIntel" {
         virtualize_core::<Intel>(params)
     } else {
@@ -58,37 +58,37 @@ pub(crate) fn main(params: &VCpuParameters) -> ! {
     }
 }
 
-// Enables a virtualization extension, sets up and runs the VM indefinitely.
-fn virtualize_core<T: Architecture>(params: &VCpuParameters) -> ! {
-    log::info!("Initializing the VM");
+// Enables a virtualization extension, sets up and runs the guest indefinitely.
+fn virtualize_core<Arch: Architecture>(params: &GuestParameters) -> ! {
+    log::info!("Initializing the guest");
 
     // Enable processor's virtualization features.
-    let mut vt = T::Extension::default();
+    let mut vt = Arch::VirtualizationExtension::default();
     vt.enable();
 
-    // Create a new (empty) VM instance and set up its initial state.
-    let vm = &mut T::VirtualMachine::new(params.processor_id);
-    vm.activate();
-    vm.initialize(&params.registers);
+    // Create a new (empty) guest instance and set up its initial state.
+    let guest = &mut Arch::Guest::new(params.processor_id);
+    guest.activate();
+    guest.initialize(&params.registers);
 
-    // Then, run the VM until events that the hypervisor (this code) needs to
+    // Then, run the guest until events that the hypervisor (this code) needs to
     // handle occurs.
-    log::info!("Starting the VM");
+    log::info!("Starting the guest");
     loop {
-        match vm.run() {
-            VmExitReason::Cpuid(info) => handle_cpuid(vm, &info),
-            VmExitReason::Rdmsr(info) => handle_rdmsr(vm, &info),
-            VmExitReason::Wrmsr(info) => handle_wrmsr(vm, &info),
-            VmExitReason::XSetBv(info) => handle_xsetbv(vm, &info),
+        match guest.run() {
+            VmExitReason::Cpuid(info) => handle_cpuid(guest, &info),
+            VmExitReason::Rdmsr(info) => handle_rdmsr(guest, &info),
+            VmExitReason::Wrmsr(info) => handle_wrmsr(guest, &info),
+            VmExitReason::XSetBv(info) => handle_xsetbv(guest, &info),
             VmExitReason::InitSignal | VmExitReason::StartupIpi | VmExitReason::NestedPageFault => {
             }
         }
     }
 }
 
-fn handle_cpuid<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
-    let leaf = vm.regs().rax as u32;
-    let sub_leaf = vm.regs().rcx as u32;
+fn handle_cpuid<T: Guest>(guest: &mut T, info: &InstructionInfo) {
+    let leaf = guest.regs().rax as u32;
+    let sub_leaf = guest.regs().rcx as u32;
     log::trace!("CPUID {leaf:#x?} {sub_leaf:#x?}");
     let mut regs = cpuid!(leaf, sub_leaf);
 
@@ -104,44 +104,44 @@ fn handle_cpuid<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
         // See: Table 3-10. Feature Information Returned in the ECX Register
         regs.ecx &= !(1 << 5);
     } else if leaf == HV_CPUID_INTERFACE {
-        // If the VM asks whether Hyper-V enlightenment is supported, say no.
+        // If the guest asks whether Hyper-V enlightenment is supported, say no.
         regs.eax = 0;
     }
 
-    vm.regs().rax = u64::from(regs.eax);
-    vm.regs().rbx = u64::from(regs.ebx);
-    vm.regs().rcx = u64::from(regs.ecx);
-    vm.regs().rdx = u64::from(regs.edx);
-    vm.regs().rip = info.next_rip;
+    guest.regs().rax = u64::from(regs.eax);
+    guest.regs().rbx = u64::from(regs.ebx);
+    guest.regs().rcx = u64::from(regs.ecx);
+    guest.regs().rdx = u64::from(regs.edx);
+    guest.regs().rip = info.next_rip;
 }
 
-fn handle_rdmsr<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
-    let msr = vm.regs().rcx as u32;
+fn handle_rdmsr<T: Guest>(guest: &mut T, info: &InstructionInfo) {
+    let msr = guest.regs().rcx as u32;
     log::trace!("RDMSR {msr:#x?}");
     let value = rdmsr(msr);
 
-    vm.regs().rax = value & 0xffff_ffff;
-    vm.regs().rdx = value >> 32;
-    vm.regs().rip = info.next_rip;
+    guest.regs().rax = value & 0xffff_ffff;
+    guest.regs().rdx = value >> 32;
+    guest.regs().rip = info.next_rip;
 }
 
-fn handle_wrmsr<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
-    let msr = vm.regs().rcx as u32;
-    let value = (vm.regs().rax & 0xffff_ffff) | ((vm.regs().rdx & 0xffff_ffff) << 32);
+fn handle_wrmsr<T: Guest>(guest: &mut T, info: &InstructionInfo) {
+    let msr = guest.regs().rcx as u32;
+    let value = (guest.regs().rax & 0xffff_ffff) | ((guest.regs().rdx & 0xffff_ffff) << 32);
     log::trace!("WRMSR {msr:#x?} {value:#x?}");
     wrmsr(msr, value);
 
-    vm.regs().rip = info.next_rip;
+    guest.regs().rip = info.next_rip;
 }
 
-fn handle_xsetbv<T: VirtualMachine>(vm: &mut T, info: &InstructionInfo) {
-    let xcr: u32 = vm.regs().rcx as u32;
-    let value = (vm.regs().rax & 0xffff_ffff) | ((vm.regs().rdx & 0xffff_ffff) << 32);
+fn handle_xsetbv<T: Guest>(guest: &mut T, info: &InstructionInfo) {
+    let xcr: u32 = guest.regs().rcx as u32;
+    let value = (guest.regs().rax & 0xffff_ffff) | ((guest.regs().rdx & 0xffff_ffff) << 32);
     let value = Xcr0::from_bits(value).unwrap();
     log::trace!("XSETBV {xcr:#x?} {value:#x?}");
 
     cr4_write(cr4() | Cr4::CR4_ENABLE_OS_XSAVE);
     xsetbv(xcr, value);
 
-    vm.regs().rip = info.next_rip;
+    guest.regs().rip = info.next_rip;
 }

@@ -16,10 +16,11 @@ use x86::{
 };
 
 use crate::hypervisor::{
-    apic_id, platform_ops,
+    apic_id,
+    host::{Guest, InstructionInfo, VmExitReason},
+    platform_ops,
     registers::Registers,
     support::zeroed_box,
-    vmm::{InstructionInfo, VirtualMachine, VmExitReason},
     x86_instructions::{cr0, cr3, cr4, rdmsr, sgdt, sidt, wrmsr},
     SHARED_HV_DATA,
 };
@@ -64,7 +65,7 @@ impl SharedVmData {
 
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
-pub(crate) struct Vm {
+pub(crate) struct SvmGuest {
     id: usize,
     vmcb: Vmcb,
     vmcb_pa: u64,
@@ -76,7 +77,7 @@ pub(crate) struct Vm {
     activity_state: &'static AtomicU8,
 }
 
-impl VirtualMachine for Vm {
+impl Guest for SvmGuest {
     fn new(id: u8) -> Self {
         let vm_data = SHARED_VM_DATA.call_once(SharedVmData::new);
 
@@ -130,9 +131,9 @@ impl VirtualMachine for Vm {
         self.vmcb.state_save_area.rsp = self.registers.rsp;
         self.vmcb.state_save_area.rflags = self.registers.rflags;
 
-        log::trace!("Entering the VM");
+        log::trace!("Entering the guest");
 
-        // Run the VM until the #VMEXIT occurs.
+        // Run the guest until the #VMEXIT occurs.
         unsafe { svm_run_vm(&mut self.registers, self.vmcb_pa, self.host_vmcb_pa) };
 
         // #VMEXIT occurred. Copy the guest register values from VMCB so that
@@ -142,7 +143,7 @@ impl VirtualMachine for Vm {
         self.registers.rsp = self.vmcb.state_save_area.rsp;
         self.registers.rflags = self.vmcb.state_save_area.rflags;
 
-        log::trace!("Exited the VM");
+        log::trace!("Exited the guest");
 
         // We might have requested flushing TLB. Clear the request.
         self.vmcb.control_area.tlb_control = TlbControl::DoNotFlush as _;
@@ -172,7 +173,7 @@ impl VirtualMachine for Vm {
             _ => {
                 log::error!("{:#x?}", self.vmcb);
                 panic!(
-                    "Unhandled VM-exit reason: {:?}",
+                    "Unhandled #VMEXIT reason: {:?}",
                     self.vmcb.control_area.exit_code
                 )
             }
@@ -184,7 +185,7 @@ impl VirtualMachine for Vm {
     }
 }
 
-impl Vm {
+impl SvmGuest {
     fn handle_security_exception(&mut self) {
         assert!(self.id != 0);
         self.handle_init_signal();
@@ -762,7 +763,7 @@ extern "C" {
     fn asm_vmsave(vmcb_pa: u64);
 }
 global_asm!(include_str!("../capture_registers.inc"));
-global_asm!(include_str!("svm_run_vm.S"));
+global_asm!(include_str!("run_guest.S"));
 
 /// Returns the access rights of the given segment for SVM.
 fn get_segment_access_right(table_base: u64, selector: u16) -> u16 {

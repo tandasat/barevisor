@@ -3,12 +3,12 @@ use core::{alloc::Layout, arch::global_asm};
 
 use crate::hypervisor::support::Page;
 
-use super::vmm::VCpuParameters;
+use super::host::GuestParameters;
 
 /// Installs the hypervisor on the current processor.
 pub(crate) fn jump_with_new_stack(
-    params: &VCpuParameters,
-    destination: fn(&VCpuParameters) -> !,
+    destination: fn(&GuestParameters) -> !,
+    params: &GuestParameters,
 ) -> ! {
     // Allocate separate stack space. This is never freed.
     let layout = Layout::array::<Page>(0x10).unwrap();
@@ -24,7 +24,7 @@ pub(crate) fn jump_with_new_stack(
 
 extern "C" {
     /// Jumps to the landing code with the new stack pointer.
-    fn switch_stack(regs: &VCpuParameters, landing_code: usize, stack_base: u64) -> !;
+    fn switch_stack(regs: &GuestParameters, landing_code: usize, stack_base: u64) -> !;
 }
 global_asm!(
     r#"

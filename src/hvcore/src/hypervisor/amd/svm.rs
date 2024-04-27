@@ -1,5 +1,5 @@
 use crate::hypervisor::{
-    vmm::Extension,
+    host::Extension,
     x86_instructions::{rdmsr, wrmsr},
 };
 

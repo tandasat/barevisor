@@ -2,6 +2,7 @@ pub mod allocator;
 mod amd;
 mod apic_id;
 pub mod gdt_tss;
+mod host;
 mod intel;
 pub mod paging_structures;
 pub mod panic;
@@ -11,7 +12,6 @@ mod segment;
 mod serial_logger;
 mod support;
 mod switch_stack;
-mod vmm;
 mod x86_instructions;
 
 use alloc::{boxed::Box, vec::Vec};
@@ -32,26 +32,26 @@ pub fn virtualize_system(hv_data: SharedData) {
     // Virtualize each logical processor.
     platform_ops::get().run_on_all_processors(|| {
         // Take a snapshot of current register values. This will be the initial
-        // state of the VM _including RIP_. This means that the VM starts execution
+        // state of the guest _including RIP_. This means that the guest starts execution
         // right after this function call. Thing of it as the setjmp() C standard
         // function.
         let registers = Registers::capture_current();
 
         // In the first run, out hypervisor is not installed and the branch is
-        // taken. After starting the VM, the second run, the hypervisor is already
+        // taken. After starting the guest, the second run, the hypervisor is already
         // installed and we will bail out.
         if !is_our_hypervisor_present() {
             log::info!("Virtualizing the current processor");
-            let params = vmm::VCpuParameters {
+            let params = host::GuestParameters {
                 processor_id: apic_id::processor_id_from(apic_id::get()).unwrap(),
                 registers,
             };
 
             // We are about to execute hypervisor code with newly allocated stack.
-            // This is required because the VM will start executing with the
+            // This is required because the guest will start executing with the
             // current stack. If we do not change the stack for the hypervisor, as soon
-            // as the VM starts, it will smash hypervisor's stack.
-            switch_stack::jump_with_new_stack(&params, vmm::main);
+            // as the guest starts, it will smash hypervisor's stack.
+            switch_stack::jump_with_new_stack(host::main, &params);
         }
         log::info!("Virtualized the current processor");
     });

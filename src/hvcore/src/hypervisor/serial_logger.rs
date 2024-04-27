@@ -43,8 +43,8 @@ impl log::Log for SerialLogger {
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
             let apic_id = apic_id();
-            // Disable interrupt while acquiring the mutex, to avoid VM-exit
-            // from the VM and the VMM reentering this code.
+            // Disable interrupt while acquiring the mutex, to reduce the chance
+            // of reentering this code.
             let _int_guard = InterruptDisabled::new();
             let mut uart = self.port.lock();
             Uart::init(uart.port, 115200);
