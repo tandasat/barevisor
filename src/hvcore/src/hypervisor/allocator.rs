@@ -18,7 +18,7 @@ pub const ALLOCATION_BYTES: usize = 0x80_0000;
 pub const ALLOCATION_PAGES: usize = ALLOCATION_BYTES / 0x1000;
 
 /// Initializes the global allocator. `ptr` must be as large as `ALLOCATION_BYTES`
-/// and must be 4096 byte-aligned
+/// and must be 4096 byte-aligned.
 pub fn init(ptr: *mut u8) {
     let _ = METADATA.call_once(|| Mutex::new(Metadata::new(ptr)));
 }

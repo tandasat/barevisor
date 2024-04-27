@@ -14,7 +14,7 @@ use wdk_sys::{
 
 #[link_section = "INIT"]
 #[export_name = "DriverEntry"]
-extern "system" fn driver_entry(
+extern "C" fn driver_entry(
     _driver: &mut DRIVER_OBJECT,
     _registry_path: PCUNICODE_STRING,
 ) -> NTSTATUS {

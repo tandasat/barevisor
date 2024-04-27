@@ -754,7 +754,7 @@ impl Default for HostStateAreaRaw {
     }
 }
 
-extern "efiapi" {
+extern "C" {
     /// Runs the guest until #VMEXIT occurs.
     fn svm_run_vm(registers: &mut Registers, vmcb_pa: u64, host_vmcb_pa: u64);
 

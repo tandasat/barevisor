@@ -2,7 +2,7 @@
 
 ;// Captures current register values.
 ;//
-;// extern "efiapi" fn capture_registers(registers: &mut GuestRegisters);
+;// extern "C" fn capture_registers(registers: &mut GuestRegisters);
 .global capture_registers
 capture_registers:
     ;// Capture general purpose and volatile XMM registers.

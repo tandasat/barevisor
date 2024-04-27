@@ -585,7 +585,7 @@ impl Vm {
     }
 }
 
-extern "efiapi" {
+extern "C" {
     /// Runs the VM until VM-exit occurs.
     fn vmx_run_vm(registers: &mut Registers) -> u64;
 }

@@ -35,7 +35,7 @@ asm_vmsave:
 ;// See: 15.5 VMRUN Instruction
 ;//      15.6 #VMEXIT
 ;//
-;// extern "efiapi" fn svm_run_vm(registers: &mut GuestRegisters, vmcb_pa: u64);
+;// extern "C" fn svm_run_vm(registers: &mut GuestRegisters, vmcb_pa: u64);
 .global svm_run_vm
 svm_run_vm:
     xchg    bx, bx

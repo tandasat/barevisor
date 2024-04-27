@@ -21,7 +21,7 @@
 ;// On VM-exit, the processor comes back to this function (at "VmExit") because
 ;// the host RIP is configured so.
 ;//
-;// extern "efiapi" fn vmx_run_vm(registers: &mut GuestRegisters) -> u64;
+;// extern "C" fn vmx_run_vm(registers: &mut GuestRegisters) -> u64;
 .global vmx_run_vm
 vmx_run_vm:
     xchg    bx, bx

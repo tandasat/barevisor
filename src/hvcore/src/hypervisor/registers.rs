@@ -47,7 +47,7 @@ pub(crate) struct Xmm {
     pub(crate) hight: u64,
 }
 
-extern "efiapi" {
+extern "C" {
     /// Captures current register values.
     fn capture_registers(registers: &mut Registers);
 }
