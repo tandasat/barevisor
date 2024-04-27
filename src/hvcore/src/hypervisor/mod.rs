@@ -20,16 +20,8 @@ use x86::cpuid::cpuid;
 
 use crate::{hypervisor::registers::Registers, GdtTss, PagingStructures};
 
-#[derive(Debug, Default)]
-pub struct SharedData {
-    pub host_pt: Option<PagingStructures>,
-    pub host_idt: Option<Vec<u64>>,
-    pub host_gdt_and_tss: Option<Vec<Box<GdtTss>>>,
-}
-
-/// A collection of data that the hypervisor depends on for its entire lifespan.
-static SHARED_HV_DATA: Once<SharedData> = Once::new();
-
+/// Hyperjacks the current system by virtualizing all logical processors on this
+/// system.
 pub fn virtualize_system(hv_data: SharedData) {
     serial_logger::init(log::LevelFilter::Debug);
     log::info!("Virtualizing the all processors");
@@ -67,11 +59,29 @@ pub fn virtualize_system(hv_data: SharedData) {
     log::info!("Virtualized the all processors");
 }
 
+/// A collection of data that the hypervisor depends on for its entire lifespan.
+#[derive(Debug, Default)]
+pub struct SharedData {
+    /// The paging structures for the hypervisor. If `None`, the current paging
+    /// structure is used for both the hypervisor and the guest.
+    pub host_pt: Option<PagingStructures>,
+
+    /// The IDT for the hypervisor for each logical processor. If `None`, the
+    /// current IDTs are used for both the hypervisor and the guest.
+    pub host_idt: Option<Vec<u64>>,
+
+    /// The GDT and TSS for the hypervisor for each logical processor. If `None`,
+    /// the current GDTs and TSSes are used for both the hypervisor and the guest.
+    pub host_gdt_and_tss: Option<Vec<Box<GdtTss>>>,
+}
+
+static SHARED_HV_DATA: Once<SharedData> = Once::new();
+
 const HV_CPUID_VENDOR_AND_MAX_FUNCTIONS: u32 = 0x4000_0000;
 const HV_CPUID_INTERFACE: u32 = 0x4000_0001;
-const OUR_HV_VENDOR_NAME_EBX: u32 = 0x6572_6142; // "Bare"
-const OUR_HV_VENDOR_NAME_ECX: u32 = 0x6F73_6976; // "viso"
-const OUR_HV_VENDOR_NAME_EDX: u32 = 0x2020_2172; // "r!  "
+const OUR_HV_VENDOR_NAME_EBX: u32 = u32::from_ne_bytes(*b"Bare");
+const OUR_HV_VENDOR_NAME_ECX: u32 = u32::from_ne_bytes(*b"viso");
+const OUR_HV_VENDOR_NAME_EDX: u32 = u32::from_ne_bytes(*b"r!  ");
 
 fn is_our_hypervisor_present() -> bool {
     let regs = cpuid!(HV_CPUID_VENDOR_AND_MAX_FUNCTIONS);
