@@ -12,43 +12,6 @@ use crate::hypervisor::{
 
 use super::{amd::Amd, intel::Intel};
 
-pub(crate) trait Architecture {
-    type VirtualizationExtension: Extension;
-    type Guest: Guest;
-}
-
-pub(crate) trait Extension: Default {
-    fn enable(&mut self);
-}
-
-pub(crate) trait Guest {
-    fn new(id: u8) -> Self;
-    fn activate(&mut self);
-    fn initialize(&mut self, registers: &Registers);
-    fn run(&mut self) -> VmExitReason;
-    fn regs(&mut self) -> &mut Registers;
-}
-
-pub(crate) struct InstructionInfo {
-    pub(crate) next_rip: u64,
-}
-
-pub(crate) enum VmExitReason {
-    Cpuid(InstructionInfo),
-    Rdmsr(InstructionInfo),
-    Wrmsr(InstructionInfo),
-    XSetBv(InstructionInfo),
-    InitSignal,
-    StartupIpi,
-    NestedPageFault,
-}
-
-#[repr(C)]
-pub(crate) struct GuestParameters {
-    pub(crate) processor_id: u8,
-    pub(crate) registers: Registers,
-}
-
 /// The entry point of the hypervisor.
 pub(crate) fn main(params: &GuestParameters) -> ! {
     if x86::cpuid::CpuId::new().get_vendor_info().unwrap().as_str() == "GenuineIntel" {
@@ -58,7 +21,7 @@ pub(crate) fn main(params: &GuestParameters) -> ! {
     }
 }
 
-// Enables a virtualization extension, sets up and runs the guest indefinitely.
+// Enables the virtualization extension, sets up and runs the guest indefinitely.
 fn virtualize_core<Arch: Architecture>(params: &GuestParameters) -> ! {
     log::info!("Initializing the guest");
 
@@ -144,4 +107,41 @@ fn handle_xsetbv<T: Guest>(guest: &mut T, info: &InstructionInfo) {
     xsetbv(xcr, value);
 
     guest.regs().rip = info.next_rip;
+}
+
+pub(crate) trait Architecture {
+    type VirtualizationExtension: Extension;
+    type Guest: Guest;
+}
+
+pub(crate) trait Extension: Default {
+    fn enable(&mut self);
+}
+
+pub(crate) trait Guest {
+    fn new(id: u8) -> Self;
+    fn activate(&mut self);
+    fn initialize(&mut self, registers: &Registers);
+    fn run(&mut self) -> VmExitReason;
+    fn regs(&mut self) -> &mut Registers;
+}
+
+pub(crate) struct InstructionInfo {
+    pub(crate) next_rip: u64,
+}
+
+pub(crate) enum VmExitReason {
+    Cpuid(InstructionInfo),
+    Rdmsr(InstructionInfo),
+    Wrmsr(InstructionInfo),
+    XSetBv(InstructionInfo),
+    InitSignal,
+    StartupIpi,
+    NestedPageFault,
+}
+
+#[repr(C)]
+pub(crate) struct GuestParameters {
+    pub(crate) processor_id: u8,
+    pub(crate) registers: Registers,
 }

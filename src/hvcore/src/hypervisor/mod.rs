@@ -33,11 +33,11 @@ pub fn virtualize_system(hv_data: SharedData) {
     platform_ops::get().run_on_all_processors(|| {
         // Take a snapshot of current register values. This will be the initial
         // state of the guest _including RIP_. This means that the guest starts execution
-        // right after this function call. Thing of it as the setjmp() C standard
+        // right after this function call. Think of it as the setjmp() C standard
         // function.
         let registers = Registers::capture_current();
 
-        // In the first run, out hypervisor is not installed and the branch is
+        // In the first run, our hypervisor is not installed and the branch is
         // taken. After starting the guest, the second run, the hypervisor is already
         // installed and we will bail out.
         if !is_our_hypervisor_present() {
