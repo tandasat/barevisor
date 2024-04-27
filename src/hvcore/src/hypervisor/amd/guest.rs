@@ -27,42 +27,6 @@ use crate::hypervisor::{
 
 use super::npts::NestedPageTables;
 
-struct SharedGuestData {
-    npt: RwLock<NestedPageTables>,
-    activity_states: [AtomicU8; 0xff],
-}
-
-#[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum GuestActivityState {
-    Active = 0,
-    WaitForSipi = u8::MAX,
-}
-
-/// A collection of data that the hypervisor depends on for its entire lifespan.
-static SHARED_GUEST_DATA: Once<SharedGuestData> = Once::new();
-
-impl SharedGuestData {
-    fn new() -> Self {
-        let mut npt = NestedPageTables::new();
-        npt.build_identity();
-
-        let apic_base_raw = rdmsr(IA32_APIC_BASE);
-        assert!(!apic_base_raw.get_bit(10), "x2APIC is enabled");
-        assert!(apic_base_raw.get_bit(11), "APIC is disabled");
-        let apic_base = apic_base_raw & !0xfff;
-
-        npt.split_2mb(apic_base);
-
-        Self {
-            npt: RwLock::new(npt),
-            activity_states: core::array::from_fn(|_| {
-                AtomicU8::new(GuestActivityState::Active as u8)
-            }),
-        }
-    }
-}
-
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
 pub(crate) struct SvmGuest {
@@ -806,4 +770,39 @@ fn get_segment_limit(table_base: u64, selector: u16) -> u32 {
         limit = ((limit + 1) << BASE_PAGE_SHIFT) - 1;
     }
     limit as u32
+}
+
+struct SharedGuestData {
+    npt: RwLock<NestedPageTables>,
+    activity_states: [AtomicU8; 0xff],
+}
+
+impl SharedGuestData {
+    fn new() -> Self {
+        let mut npt = NestedPageTables::new();
+        npt.build_identity();
+
+        let apic_base_raw = rdmsr(IA32_APIC_BASE);
+        assert!(!apic_base_raw.get_bit(10), "x2APIC is enabled");
+        assert!(apic_base_raw.get_bit(11), "APIC is disabled");
+        let apic_base = apic_base_raw & !0xfff;
+
+        npt.split_2mb(apic_base);
+
+        Self {
+            npt: RwLock::new(npt),
+            activity_states: core::array::from_fn(|_| {
+                AtomicU8::new(GuestActivityState::Active as u8)
+            }),
+        }
+    }
+}
+
+static SHARED_GUEST_DATA: Once<SharedGuestData> = Once::new();
+
+#[repr(u8)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum GuestActivityState {
+    Active = 0,
+    WaitForSipi = u8::MAX,
 }
