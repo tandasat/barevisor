@@ -38,7 +38,6 @@ extern "system" fn driver_entry(
 
 #[panic_handler]
 fn panic_handler(info: &core::panic::PanicInfo<'_>) -> ! {
-    eprintln!("{info}");
     if unsafe { *wdk_sys::KdDebuggerNotPresent } == 0 {
         wdk::dbg_break();
     }

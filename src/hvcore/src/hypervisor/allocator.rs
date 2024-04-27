@@ -1,15 +1,24 @@
+//! This file implements a global allocator. This allocator takes a pre-allocated
+//! heap and allocates fixed-sized blocks, either 128 or 4096 bytes depending on
+//! a requested size. 4096 bytes allocation is always page-aligned.
+//!
+//! This allocator eliminates dependencies onto platform API for memory management
+//! at runtime. This is important as calling platform API from the hypervisor is
+//! unsound.
+
 use core::{
     alloc::{GlobalAlloc, Layout},
     ptr::{addr_of, addr_of_mut, NonNull},
 };
 
-use bitvec::array::BitArray;
-use bitvec::prelude::*;
+use bitvec::{array::BitArray, prelude::*};
 use spin::{Mutex, Once};
 
 pub const ALLOCATION_BYTES: usize = 0x80_0000;
 pub const ALLOCATION_PAGES: usize = ALLOCATION_BYTES / 0x1000;
 
+/// Initializes the global allocator. `ptr` must be as large as `ALLOCATION_BYTES`
+/// and must be 4096 byte-aligned
 pub fn init(ptr: *mut u8) {
     let _ = METADATA.call_once(|| Mutex::new(Metadata::new(ptr)));
 }
@@ -145,6 +154,7 @@ impl Metadata {
 
 const BLOCK_SIZE_4096: usize = 4096;
 const BLOCK_SIZE_128: usize = 128;
+
 #[repr(C, align(4096))]
 struct Blocks {
     block4096: [Block<BLOCK_SIZE_4096>; NUMBER_OF_BLOCK_4096],
