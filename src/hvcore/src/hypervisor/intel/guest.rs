@@ -27,25 +27,23 @@ use x86::{
     vmx::vmcs::control::SecondaryControls,
 };
 
-use crate::{
-    hypervisor::SHARED_HV_DATA,
-    hypervisor::{
-        registers::Registers,
-        segment::SegmentDescriptor,
-        support::Page,
-        x86_instructions::{cr3, lar, ldtr, lsl, sgdt, sidt, tr},
-    },
+use crate::hypervisor::{
+    registers::Registers,
+    segment::SegmentDescriptor,
+    support::Page,
+    x86_instructions::{cr3, lar, ldtr, lsl, sgdt, sidt, tr},
+    SHARED_HOST_DATA,
 };
 
 use super::epts::Epts;
 
-struct SharedVmData {
+struct SharedGuestData {
     msr_bitmaps: Box<Page>,
     epts: Box<Epts>,
 }
 
 /// A collection of data that the hypervisor depends on for its entire lifespan.
-static SHARED_VM_DATA: Once<SharedVmData> = Once::new();
+static SHARED_GUEST_DATA: Once<SharedGuestData> = Once::new();
 
 pub(crate) struct VmxGuest {
     registers: Registers,
@@ -55,11 +53,11 @@ pub(crate) struct VmxGuest {
 
 impl Guest for VmxGuest {
     fn new(id: u8) -> Self {
-        let _ = SHARED_VM_DATA.call_once(|| {
+        let _ = SHARED_GUEST_DATA.call_once(|| {
             let mut epts = zeroed_box::<Epts>();
             epts.build_identify();
 
-            SharedVmData {
+            SharedGuestData {
                 msr_bitmaps: zeroed_box::<Page>(),
                 epts,
             }
@@ -187,11 +185,11 @@ impl VmxGuest {
             ),
         );
 
-        let shared_vm_data = SHARED_VM_DATA.get().unwrap();
-        let va = shared_vm_data.msr_bitmaps.as_ref() as *const _;
+        let shared_guest = SHARED_GUEST_DATA.get().unwrap();
+        let va = shared_guest.msr_bitmaps.as_ref() as *const _;
         let pa = platform_ops::get().pa(va as *const _);
         vmwrite(vmcs::control::MSR_BITMAPS_ADDR_FULL, pa);
-        vmwrite(vmcs::control::EPTP_FULL, shared_vm_data.epts.eptp().0);
+        vmwrite(vmcs::control::EPTP_FULL, shared_guest.epts.eptp().0);
     }
 
     fn initialize_guest(&self) {
@@ -307,31 +305,31 @@ impl VmxGuest {
     fn initialize_host(&self) {
         let gdtr = sgdt();
 
-        let shared_data = SHARED_HV_DATA.get().unwrap();
-        let cr3 = if let Some(host_pt) = &shared_data.host_pt {
+        let shared_host = SHARED_HOST_DATA.get().unwrap();
+        let cr3 = if let Some(host_pt) = &shared_host.pt {
             addr_of!(*host_pt.as_ref()) as u64
         } else {
             cr3()
         };
-        let gdt_base = if let Some(host_gdt_and_tss) = &shared_data.host_gdt_and_tss {
+        let gdt_base = if let Some(host_gdt_and_tss) = &shared_host.gdts {
             let x = &host_gdt_and_tss[self.id].gdt[0];
             x as *const _ as u64
         } else {
             gdtr.base as u64
         };
-        let tr = if let Some(host_gdt_and_tss) = &shared_data.host_gdt_and_tss {
+        let tr = if let Some(host_gdt_and_tss) = &shared_host.gdts {
             host_gdt_and_tss[self.id].tr.unwrap()
         } else {
             tr()
         };
-        let tss_base = if let Some(host_gdt_and_tss) = &shared_data.host_gdt_and_tss {
+        let tss_base = if let Some(host_gdt_and_tss) = &shared_host.gdts {
             let x = host_gdt_and_tss[self.id].tss.as_ref();
             let x = x.unwrap();
             x.as_ref() as *const _ as u64
         } else {
             SegmentDescriptor::try_from_gdtr(&gdtr, tr).unwrap().base()
         };
-        let idt_base = if let Some(_host_idt) = &shared_data.host_idt {
+        let idt_base = if let Some(_host_idt) = &shared_host.idts {
             unimplemented!()
         } else {
             let idtr = sidt();

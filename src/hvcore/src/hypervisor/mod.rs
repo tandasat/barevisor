@@ -22,12 +22,12 @@ use crate::{hypervisor::registers::Registers, GdtTss, PagingStructures};
 
 /// Hyperjacks the current system by virtualizing all logical processors on this
 /// system.
-pub fn virtualize_system(hv_data: SharedData) {
+pub fn virtualize_system(shared_host: SharedHostData) {
     serial_logger::init(log::LevelFilter::Debug);
     log::info!("Virtualizing the all processors");
 
     apic_id::init();
-    let _ = SHARED_HV_DATA.call_once(|| hv_data);
+    let _ = SHARED_HOST_DATA.call_once(|| shared_host);
 
     // Virtualize each logical processor.
     platform_ops::get().run_on_all_processors(|| {
@@ -57,21 +57,21 @@ pub fn virtualize_system(hv_data: SharedData) {
 
 /// A collection of data that the hypervisor depends on for its entire lifespan.
 #[derive(Debug, Default)]
-pub struct SharedData {
+pub struct SharedHostData {
     /// The paging structures for the hypervisor. If `None`, the current paging
     /// structure is used for both the hypervisor and the guest.
-    pub host_pt: Option<PagingStructures>,
+    pub pt: Option<PagingStructures>,
 
     /// The IDT for the hypervisor for each logical processor. If `None`, the
     /// current IDTs are used for both the hypervisor and the guest.
-    pub host_idt: Option<Vec<u64>>,
+    pub idts: Option<Vec<u64>>,
 
     /// The GDT and TSS for the hypervisor for each logical processor. If `None`,
     /// the current GDTs and TSSes are used for both the hypervisor and the guest.
-    pub host_gdt_and_tss: Option<Vec<Box<GdtTss>>>,
+    pub gdts: Option<Vec<Box<GdtTss>>>,
 }
 
-static SHARED_HV_DATA: Once<SharedData> = Once::new();
+static SHARED_HOST_DATA: Once<SharedHostData> = Once::new();
 
 const HV_CPUID_VENDOR_AND_MAX_FUNCTIONS: u32 = 0x4000_0000;
 const HV_CPUID_INTERFACE: u32 = 0x4000_0001;

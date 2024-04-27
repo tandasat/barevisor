@@ -22,12 +22,12 @@ use crate::hypervisor::{
     registers::Registers,
     support::zeroed_box,
     x86_instructions::{cr0, cr3, cr4, rdmsr, sgdt, sidt, wrmsr},
-    SHARED_HV_DATA,
+    SHARED_HOST_DATA,
 };
 
 use super::npts::NestedPageTables;
 
-struct SharedVmData {
+struct SharedGuestData {
     npt: RwLock<NestedPageTables>,
     activity_states: [AtomicU8; 0xff],
 }
@@ -40,9 +40,9 @@ enum GuestActivityState {
 }
 
 /// A collection of data that the hypervisor depends on for its entire lifespan.
-static SHARED_VM_DATA: Once<SharedVmData> = Once::new();
+static SHARED_GUEST_DATA: Once<SharedGuestData> = Once::new();
 
-impl SharedVmData {
+impl SharedGuestData {
     fn new() -> Self {
         let mut npt = NestedPageTables::new();
         npt.build_identity();
@@ -79,7 +79,7 @@ pub(crate) struct SvmGuest {
 
 impl Guest for SvmGuest {
     fn new(id: u8) -> Self {
-        let vm_data = SHARED_VM_DATA.call_once(SharedVmData::new);
+        let shared_guest = SHARED_GUEST_DATA.call_once(SharedGuestData::new);
 
         let mut vm = Self {
             id: id as usize,
@@ -89,7 +89,7 @@ impl Guest for SvmGuest {
             host_vmcb_pa: 0,
             host_state: HostStateArea::default(),
             registers: Registers::default(),
-            activity_state: &vm_data.activity_states[id as usize],
+            activity_state: &shared_guest.activity_states[id as usize],
         };
 
         vm.vmcb_pa = platform_ops::get().pa(addr_of!(*vm.vmcb.as_ref()) as _);
@@ -317,8 +317,8 @@ impl SvmGuest {
         let apic_base = apic_base_raw & !0xfff;
         let pt_index = apic_base.get_bits(12..=20) as usize; // [20:12]
 
-        let shared_vm_data = SHARED_VM_DATA.get().unwrap();
-        let mut npt = shared_vm_data.npt.write();
+        let shared_guest = SHARED_GUEST_DATA.get().unwrap();
+        let mut npt = shared_guest.npt.write();
         let pt = npt.pt();
         pt.0.entries[pt_index].set_writable(!enable);
 
@@ -434,8 +434,8 @@ impl SvmGuest {
         // yet in the WaitForSipi state when #VMEXIT(#SX) has not been processed.
         // It is fine, as SIPI will be sent twice, and almost certain that 2nd
         // SIPI is late enough.
-        let shared_vm_data = SHARED_VM_DATA.get().unwrap();
-        let activity_state = &shared_vm_data.activity_states[processor_id];
+        let shared_guest = SHARED_GUEST_DATA.get().unwrap();
+        let activity_state = &shared_guest.activity_states[processor_id];
         let _ = activity_state.compare_exchange(
             GuestActivityState::WaitForSipi as u8,
             vector,
@@ -463,8 +463,8 @@ impl SvmGuest {
         // - Setting the base address of the nested PML4
         //
         // See: 15.25.3 Enabling Nested Paging
-        let shared_vm_data = SHARED_VM_DATA.get().unwrap();
-        let nested_pml4_addr = addr_of!(*shared_vm_data.npt.read().as_ref());
+        let shared_guest = SHARED_GUEST_DATA.get().unwrap();
+        let nested_pml4_addr = addr_of!(*shared_guest.npt.read().as_ref());
         self.vmcb.control_area.np_enable = SVM_NP_ENABLE_NP_ENABLE;
         self.vmcb.control_area.ncr3 = platform_ops::get().pa(nested_pml4_addr as _);
 
@@ -517,21 +517,21 @@ impl SvmGuest {
     }
 
     fn initialize_host(&mut self) {
-        let shared_data = SHARED_HV_DATA.get().unwrap();
+        let shared_host = SHARED_HOST_DATA.get().unwrap();
         let ops = platform_ops::get();
 
-        if let Some(host_pt) = &shared_data.host_pt {
+        if let Some(host_pt) = &shared_host.pt {
             let pml4 = addr_of!(*host_pt.as_ref());
             unsafe { cr3_write(ops.pa(pml4 as _)) };
             log::debug!("Updated CR3");
         }
 
-        if let Some(host_gdt_and_tss) = &shared_data.host_gdt_and_tss {
+        if let Some(host_gdt_and_tss) = &shared_host.gdts {
             host_gdt_and_tss[self.id].apply().unwrap();
             log::debug!("Updated GDTR");
         }
 
-        if let Some(_host_idt) = &shared_data.host_idt {
+        if let Some(_host_idt) = &shared_host.idts {
             log::debug!("Updated IDTR");
             unimplemented!();
         }

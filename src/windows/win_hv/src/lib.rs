@@ -30,7 +30,7 @@ extern "C" fn driver_entry(
     };
     hv::allocator::init(ptr.cast::<u8>());
     hv::platform_ops::init(Box::new(ops::WindowsOps {}));
-    hv::virtualize_system(hv::SharedData::default());
+    hv::virtualize_system(hv::SharedHostData::default());
 
     eprintln!("Loaded win_hv.sys");
     STATUS_SUCCESS

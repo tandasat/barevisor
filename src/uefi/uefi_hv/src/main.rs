@@ -57,12 +57,11 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
     let mut host_pt = PagingStructures::new();
     host_pt.build_identity();
 
-    let hv_data = hv::SharedData {
-        host_idt: None,
-        host_pt: Some(host_pt),
-        host_gdt_and_tss: Some(host_gdt_and_tss),
-    };
-    hv::virtualize_system(hv_data);
+    hv::virtualize_system(hv::SharedHostData {
+        pt: Some(host_pt),
+        idts: None,
+        gdts: Some(host_gdt_and_tss),
+    });
 
     println!("Loaded uefi_hv.efi");
     Status::SUCCESS
