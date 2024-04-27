@@ -48,7 +48,6 @@ impl log::Log for SerialLogger {
             // of reentering this code.
             let _intr_guard = InterruptGuard::new();
             let mut uart = self.port.lock();
-            Uart::init(uart.port, 115200);
             let _ = writeln!(uart, "#{apic_id}:{:5}: {}", record.level(), record.args());
         }
     }
