@@ -1,10 +1,7 @@
 //! This file implements a global allocator. This allocator takes a pre-allocated
-//! heap and allocates fixed-sized blocks, either 128 or 4096 bytes depending on
-//! a requested size. 4096 bytes allocation is always page-aligned.
-//!
-//! This allocator eliminates dependencies onto platform API for memory management
-//! at runtime. This is important as calling platform API from the hypervisor is
-//! unsound.
+//! heap and provides allocator for fixed-sized blocks. This allocator eliminates
+//! dependencies onto platform API for memory management at runtime. This is
+//! important as calling platform API from the hypervisor is unsound.
 
 use core::{
     alloc::{GlobalAlloc, Layout},
@@ -29,6 +26,12 @@ static ALLOCATOR: Allocator = Allocator;
 struct Allocator;
 
 unsafe impl GlobalAlloc for Allocator {
+    /// Allocates memory. If the requested size is smaller than 4096 bytes, it
+    /// returns 128-byte aligned block(s). If greater than 4096 bytes, it returns
+    /// 4096-byte aligned block(s).
+    ///
+    /// Allocation of memory that is physically continuous for 2 or more pages are
+    /// not supported.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let mut meta = METADATA.get().expect("init() is not called").lock();
         let blocks = unsafe { meta.blocks.as_mut() };
