@@ -255,7 +255,6 @@ impl RawMtrrs {
         // fixed range MTRRs.
         let default_type = rdmsr(x86::msr::IA32_MTRR_DEF_TYPE);
 
-        // FIXME: return Result<>
         assert!(
             (default_type & IA32_MTRR_DEF_TYPE_MTRR_ENABLE_FLAG) != 0,
             "MTRRs not enabled"

@@ -128,10 +128,6 @@ pub(crate) trait Guest {
     fn regs(&mut self) -> &mut Registers;
 }
 
-pub(crate) struct InstructionInfo {
-    pub(crate) next_rip: u64,
-}
-
 pub(crate) enum VmExitReason {
     Cpuid(InstructionInfo),
     Rdmsr(InstructionInfo),
@@ -140,4 +136,8 @@ pub(crate) enum VmExitReason {
     InitSignal,
     StartupIpi,
     NestedPageFault,
+}
+
+pub(crate) struct InstructionInfo {
+    pub(crate) next_rip: u64,
 }
