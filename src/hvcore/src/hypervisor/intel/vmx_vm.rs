@@ -689,44 +689,44 @@ bitfield::bitfield! {
     /// Extracts or sets the segment type (bits 3:0). This field specifies the type of segment or gate descriptor,
     /// including data, code, system segments, etc. The exact meaning of these bits varies based on the descriptor
     /// type (system, code, or data).
-    pub segment_type, set_segment_type: 3, 0;
+    segment_type, set_segment_type: 3, 0;
 
     /// Indicates the descriptor type (bit 4). A value of 0 signifies a system descriptor (like LDT or TSS),
     /// while 1 signifies a code or data descriptor. This distinction affects the interpretation of other fields
     /// in the descriptor.
-    pub descriptor_type, set_descriptor_type: 4;
+    descriptor_type, set_descriptor_type: 4;
 
     /// Represents the Descriptor Privilege Level (DPL, bits 6:5). This specifies the privilege level of the segment,
     /// ranging from 0 (highest privilege, kernel) to 3 (lowest privilege, user applications).
-    pub descriptor_privilege_level, set_descriptor_privilege_level: 6, 5;
+    descriptor_privilege_level, set_descriptor_privilege_level: 6, 5;
 
     /// Indicates whether the segment is present (bit 7). If this bit is cleared, any attempt to access the segment
     /// results in a segment not present exception (#NP). This bit is used to control loading of segments that
     /// might not be currently available in memory.
-    pub present, set_present: 7;
+    present, set_present: 7;
 
     /// Reserved bits (11:8). These bits are reserved and should not be modified. They are present for alignment
     /// and future compatibility.
 
     /// Available for use by system software (bit 12). This bit is available for use by system software and does not
     /// have a defined meaning in the VMX operation. It can be used by hypervisors to store additional information.
-    pub available, set_available: 12;
+    available, set_available: 12;
 
     /// Indicates 64-bit mode active (for CS only, bit 13). For the CS segment, setting this bit indicates that
     /// the segment is running in 64-bit mode (long mode). This bit is ignored for other segment types.
-    pub long_mode, set_long_mode: 13;
+    long_mode, set_long_mode: 13;
 
     /// Default operation size (D/B, bit 14). For code segments, this bit controls the default operation size
     /// (0 for 16-bit, 1 for 32-bit). For stack segments (SS), it controls the stack pointer size.
-    pub default_big, set_default_big: 14;
+    default_big, set_default_big: 14;
 
     /// Granularity (bit 15). When set, the segment limit is scaled by 4K, allowing for larger segments.
     /// This bit is used in conjunction with the segment limit field to determine the actual size of the segment.
-    pub granularity, set_granularity: 15;
+    granularity, set_granularity: 15;
 
     /// Indicates if the segment is unusable (bit 16). If set, the segment cannot be used for memory access.
     /// An unusable segment is typically one that has been loaded with a null selector.
-    pub unusable, set_unusable: 16;
+    unusable, set_unusable: 16;
 
     // Reserved bits (31:17). These bits are reserved for future use and should always be cleared to ensure
     // compatibility with future processors.

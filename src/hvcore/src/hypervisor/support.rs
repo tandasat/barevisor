@@ -17,6 +17,6 @@ pub(crate) fn zeroed_box<T>() -> Box<T> {
 //
 // This does not _always_ have to be allocated at the page aligned address, but
 // very often it is, so let us specify the alignment.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 #[repr(C, align(4096))]
-pub struct Page([u8; BASE_PAGE_SIZE]);
+pub(crate) struct Page([u8; BASE_PAGE_SIZE]);
