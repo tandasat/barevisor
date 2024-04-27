@@ -43,10 +43,10 @@ pub fn virtualize_system(shared_host: SharedHostData) {
         if !is_our_hypervisor_present() {
             log::info!("Virtualizing the current processor");
 
-            // We are about to execute hypervisor code with newly allocated stack.
+            // We are about to execute host code with newly allocated stack.
             // This is required because the guest will start executing with the
-            // current stack. If we do not change the stack for the hypervisor, as soon
-            // as the guest starts, it will smash hypervisor's stack.
+            // current stack. If we do not change the stack for the host, as soon
+            // as the guest starts, it will smash host's stack.
             switch_stack::jump_with_new_stack(host::main, &registers);
         }
         log::info!("Virtualized the current processor");
@@ -55,19 +55,19 @@ pub fn virtualize_system(shared_host: SharedHostData) {
     log::info!("Virtualized the all processors");
 }
 
-/// A collection of data that the hypervisor depends on for its entire lifespan.
+/// A collection of data that the host depends on for its entire lifespan.
 #[derive(Debug, Default)]
 pub struct SharedHostData {
-    /// The paging structures for the hypervisor. If `None`, the current paging
-    /// structure is used for both the hypervisor and the guest.
+    /// The paging structures for the host. If `None`, the current paging
+    /// structure is used for both the host and the guest.
     pub pt: Option<PagingStructures>,
 
-    /// The IDT for the hypervisor for each logical processor. If `None`, the
-    /// current IDTs are used for both the hypervisor and the guest.
+    /// The IDT for the host for each logical processor. If `None`, the
+    /// current IDTs are used for both the host and the guest.
     pub idts: Option<Vec<u64>>,
 
-    /// The GDT and TSS for the hypervisor for each logical processor. If `None`,
-    /// the current GDTs and TSSes are used for both the hypervisor and the guest.
+    /// The GDT and TSS for the host for each logical processor. If `None`,
+    /// the current GDTs and TSSes are used for both the host and the guest.
     pub gdts: Option<Vec<Box<GdtTss>>>,
 }
 
