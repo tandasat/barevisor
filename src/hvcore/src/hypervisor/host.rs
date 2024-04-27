@@ -4,6 +4,7 @@ use x86::{
 };
 
 use crate::hypervisor::{
+    apic_id,
     registers::Registers,
     x86_instructions::{cr4, cr4_write, rdmsr, wrmsr, xsetbv},
     HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS, OUR_HV_VENDOR_NAME_EBX,
@@ -13,16 +14,16 @@ use crate::hypervisor::{
 use super::{amd::Amd, intel::Intel};
 
 /// The entry point of the hypervisor.
-pub(crate) fn main(params: &GuestParameters) -> ! {
+pub(crate) fn main(registers: &Registers) -> ! {
     if x86::cpuid::CpuId::new().get_vendor_info().unwrap().as_str() == "GenuineIntel" {
-        virtualize_core::<Intel>(params)
+        virtualize_core::<Intel>(registers)
     } else {
-        virtualize_core::<Amd>(params)
+        virtualize_core::<Amd>(registers)
     }
 }
 
 // Enables the virtualization extension, sets up and runs the guest indefinitely.
-fn virtualize_core<Arch: Architecture>(params: &GuestParameters) -> ! {
+fn virtualize_core<Arch: Architecture>(registers: &Registers) -> ! {
     log::info!("Initializing the guest");
 
     // Enable processor's virtualization features.
@@ -30,9 +31,10 @@ fn virtualize_core<Arch: Architecture>(params: &GuestParameters) -> ! {
     vt.enable();
 
     // Create a new (empty) guest instance and set up its initial state.
-    let guest = &mut Arch::Guest::new(params.processor_id);
+    let id = apic_id::processor_id_from(apic_id::get()).unwrap();
+    let guest = &mut Arch::Guest::new(id);
     guest.activate();
-    guest.initialize(&params.registers);
+    guest.initialize(registers);
 
     // Then, run the guest until events that the hypervisor (this code) needs to
     // handle occurs.
@@ -138,10 +140,4 @@ pub(crate) enum VmExitReason {
     InitSignal,
     StartupIpi,
     NestedPageFault,
-}
-
-#[repr(C)]
-pub(crate) struct GuestParameters {
-    pub(crate) processor_id: u8,
-    pub(crate) registers: Registers,
 }

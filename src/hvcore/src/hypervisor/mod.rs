@@ -42,16 +42,12 @@ pub fn virtualize_system(hv_data: SharedData) {
         // installed and we will bail out.
         if !is_our_hypervisor_present() {
             log::info!("Virtualizing the current processor");
-            let params = host::GuestParameters {
-                processor_id: apic_id::processor_id_from(apic_id::get()).unwrap(),
-                registers,
-            };
 
             // We are about to execute hypervisor code with newly allocated stack.
             // This is required because the guest will start executing with the
             // current stack. If we do not change the stack for the hypervisor, as soon
             // as the guest starts, it will smash hypervisor's stack.
-            switch_stack::jump_with_new_stack(host::main, &params);
+            switch_stack::jump_with_new_stack(host::main, &registers);
         }
         log::info!("Virtualized the current processor");
     });
