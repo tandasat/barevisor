@@ -89,8 +89,11 @@ pub(crate) fn lsl(selector: SegmentSelector) -> u32 {
             lateout(reg) flags
         );
     };
-    assert!(RFlags::from_raw(flags).contains(RFlags::FLAGS_ZF));
-    limit as u32
+    if RFlags::from_raw(flags).contains(RFlags::FLAGS_ZF) {
+        limit as _
+    } else {
+        0
+    }
 }
 
 /// LAR-Load Access Rights Byte
@@ -107,8 +110,11 @@ pub(crate) fn lar(selector: SegmentSelector) -> u32 {
             lateout(reg) flags
         );
     };
-    assert!(RFlags::from_raw(flags).contains(RFlags::FLAGS_ZF));
-    access_rights as u32
+    if RFlags::from_raw(flags).contains(RFlags::FLAGS_ZF) {
+        access_rights as _
+    } else {
+        0
+    }
 }
 
 pub(crate) fn xsetbv(xcr: u32, val: Xcr0) {

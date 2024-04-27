@@ -3,7 +3,8 @@
 
 use core::fmt::Write;
 use spin::{Mutex, Once};
-use x86::bits64::rflags;
+
+use super::support::InterruptGuard;
 
 static LOGGER: Once<SerialLogger> = Once::new();
 
@@ -45,7 +46,7 @@ impl log::Log for SerialLogger {
             let apic_id = apic_id();
             // Disable interrupt while acquiring the mutex, to reduce the chance
             // of reentering this code.
-            let _int_guard = InterruptDisabled::new();
+            let _intr_guard = InterruptGuard::new();
             let mut uart = self.port.lock();
             Uart::init(uart.port, 115200);
             let _ = writeln!(uart, "#{apic_id}:{:5}: {}", record.level(), record.args());
@@ -117,24 +118,4 @@ fn apic_id() -> u8 {
     // See: (AMD) CPUID Fn0000_0001_EBX LocalApicId, LogicalProcessorCount, CLFlush
     // See: (Intel) Table 3-8. Information Returned by CPUID Instruction
     (x86::cpuid::cpuid!(0x1).ebx >> 24) as _
-}
-
-struct InterruptDisabled {
-    enabled: bool,
-}
-
-impl InterruptDisabled {
-    fn new() -> Self {
-        let enabled = x86::bits64::rflags::read().contains(rflags::RFlags::FLAGS_IF);
-        unsafe { x86::irq::disable() };
-        Self { enabled }
-    }
-}
-
-impl Drop for InterruptDisabled {
-    fn drop(&mut self) {
-        if self.enabled {
-            unsafe { x86::irq::enable() };
-        }
-    }
 }

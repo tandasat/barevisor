@@ -11,7 +11,7 @@ use x86::{
 use crate::hypervisor::{
     host::{Guest, InstructionInfo, VmExitReason},
     platform_ops,
-    support::zeroed_box,
+    support::{zeroed_box, InterruptGuard},
     x86_instructions::{cr0, cr4, rdmsr},
 };
 
@@ -21,7 +21,7 @@ use x86::{
     bits64::rflags::RFlags,
     controlregs::cr2_write,
     debugregs::{dr0_write, dr1_write, dr2_write, dr3_write, dr6_write, Dr6},
-    segmentation::{cs, ds, es, fs, gs, ss, SegmentSelector},
+    segmentation::{cs, ds, es, fs, gs, ss},
     segmentation::{CodeSegmentType, DataSegmentType, SystemDescriptorTypes64},
     vmx::vmcs,
     vmx::vmcs::control::SecondaryControls,
@@ -193,23 +193,16 @@ impl VmxGuest {
     }
 
     fn initialize_guest(&self) {
+        // Make this function semi-atomic to reduce the chance of registers
+        // changing in between. For example, SS may change frequently on Windows.
+        let _intr_guard = InterruptGuard::new();
+
         let idtr = sidt();
         let gdtr = sgdt();
 
-        // FIXME: snapshot should include those registers
-
-        // SS reported as 0x0 on VMware time to time. What the heck?
-        let ss = ss();
-        let ss = if ss.bits() == 0 {
-            log::warn!("{:x}", ss.bits());
-            SegmentSelector::from_raw(0x18)
-        } else {
-            ss
-        };
-
         vmwrite(vmcs::guest::ES_SELECTOR, es().bits());
         vmwrite(vmcs::guest::CS_SELECTOR, cs().bits());
-        vmwrite(vmcs::guest::SS_SELECTOR, ss.bits());
+        vmwrite(vmcs::guest::SS_SELECTOR, ss().bits());
         vmwrite(vmcs::guest::DS_SELECTOR, ds().bits());
         vmwrite(vmcs::guest::FS_SELECTOR, fs().bits());
         vmwrite(vmcs::guest::GS_SELECTOR, gs().bits());
@@ -218,12 +211,11 @@ impl VmxGuest {
 
         vmwrite(vmcs::guest::ES_LIMIT, lsl(es()));
         vmwrite(vmcs::guest::CS_LIMIT, lsl(cs()));
-        vmwrite(vmcs::guest::SS_LIMIT, lsl(ss));
+        vmwrite(vmcs::guest::SS_LIMIT, lsl(ss()));
         vmwrite(vmcs::guest::DS_LIMIT, lsl(ds()));
         vmwrite(vmcs::guest::FS_LIMIT, lsl(fs()));
         vmwrite(vmcs::guest::GS_LIMIT, lsl(gs()));
         vmwrite(vmcs::guest::TR_LIMIT, lsl(tr()));
-        //vmwrite(vmcs::guest::LDTR_LIMIT, lsl(ldtr())); // TODO: check
 
         vmwrite(
             vmcs::guest::ES_ACCESS_RIGHTS,
@@ -233,7 +225,10 @@ impl VmxGuest {
             vmcs::guest::CS_ACCESS_RIGHTS,
             Self::access_rights(lar(cs())),
         );
-        vmwrite(vmcs::guest::SS_ACCESS_RIGHTS, Self::access_rights(lar(ss)));
+        vmwrite(
+            vmcs::guest::SS_ACCESS_RIGHTS,
+            Self::access_rights(lar(ss())),
+        );
         vmwrite(
             vmcs::guest::DS_ACCESS_RIGHTS,
             Self::access_rights(lar(ds())),
@@ -260,12 +255,6 @@ impl VmxGuest {
                 .unwrap()
                 .base(),
         );
-        //vmwrite(
-        //    vmcs::guest::LDTR_BASE,
-        //    SegmentDescriptor::try_from_gdtr(&gdtr, ldtr())
-        //        .unwrap()
-        //        .base(),
-        //);
 
         vmwrite(vmcs::guest::GDTR_BASE, gdtr.base as u64);
         vmwrite(vmcs::guest::GDTR_LIMIT, gdtr.limit);

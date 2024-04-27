@@ -20,7 +20,7 @@ use crate::hypervisor::{
     host::{Guest, InstructionInfo, VmExitReason},
     platform_ops,
     registers::Registers,
-    support::zeroed_box,
+    support::{zeroed_box, InterruptGuard},
     x86_instructions::{cr0, cr3, cr4, rdmsr, sgdt, sidt, wrmsr},
     SHARED_HOST_DATA,
 };
@@ -480,6 +480,10 @@ impl SvmGuest {
 
     fn initialize_guest(&mut self) {
         const EFER_SVME: u64 = 1 << 12;
+
+        // Make this function semi-atomic to reduce the chance of registers
+        // changing in between. For example, SS may change frequently on Windows.
+        let _intr_guard = InterruptGuard::new();
 
         let idtr = sidt();
         let gdtr = sgdt();

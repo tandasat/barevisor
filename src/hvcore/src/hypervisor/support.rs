@@ -1,7 +1,7 @@
 use core::alloc::Layout;
 
 use alloc::{alloc::handle_alloc_error, boxed::Box};
-use x86::bits64::paging::BASE_PAGE_SIZE;
+use x86::bits64::{paging::BASE_PAGE_SIZE, rflags};
 
 /// Returns zero-initialized Box of `T` without using stack during construction.
 pub(crate) fn zeroed_box<T>() -> Box<T> {
@@ -20,3 +20,23 @@ pub(crate) fn zeroed_box<T>() -> Box<T> {
 #[derive(Debug)]
 #[repr(C, align(4096))]
 pub(crate) struct Page([u8; BASE_PAGE_SIZE]);
+
+pub(crate) struct InterruptGuard {
+    enabled: bool,
+}
+
+impl InterruptGuard {
+    pub(crate) fn new() -> Self {
+        let enabled = rflags::read().contains(rflags::RFlags::FLAGS_IF);
+        unsafe { x86::irq::disable() };
+        Self { enabled }
+    }
+}
+
+impl Drop for InterruptGuard {
+    fn drop(&mut self) {
+        if self.enabled {
+            unsafe { x86::irq::enable() };
+        }
+    }
+}
