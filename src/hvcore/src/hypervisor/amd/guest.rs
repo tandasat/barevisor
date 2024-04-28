@@ -154,6 +154,17 @@ impl SvmGuest {
         assert!(self.id != 0);
         self.handle_init_signal();
         self.handle_sipi(self.wait_for_sipi());
+
+        // Stop intercepting APIC write access if SIPI is received for all APs.
+        let shared_guest = SHARED_GUEST_DATA.get().unwrap();
+        let received_sipi_count = shared_guest
+            .received_sipi_count
+            .fetch_add(1, Ordering::Relaxed)
+            + 1;
+        if received_sipi_count == shared_guest.expected_sipi_count {
+            self.intercept_apic_write(false);
+            log::info!("Stopped APIC interception");
+        }
     }
 
     fn handle_init_signal(&mut self) {
@@ -266,7 +277,7 @@ impl SvmGuest {
     fn handle_sipi(&mut self, vector: u8) {
         assert!(self.id != 0);
         assert!(self.activity_state.load(Ordering::Relaxed) == GuestActivityState::Active as u8);
-        log::debug!("SIPI vector {vector:#x?}");
+        log::info!("SIPI vector {vector:#x?}");
 
         self.vmcb.state_save_area.cs_selector = (vector as u16) << 8;
         self.vmcb.state_save_area.cs_base = (vector as u64) << 12;
@@ -275,8 +286,6 @@ impl SvmGuest {
     }
 
     fn intercept_apic_write(&mut self, enable: bool) {
-        assert!(self.id == 0);
-
         let apic_base_raw = rdmsr(IA32_APIC_BASE);
         let apic_base = apic_base_raw & !0xfff;
         let pt_index = apic_base.get_bits(12..=20) as usize; // [20:12]
@@ -301,6 +310,8 @@ impl SvmGuest {
             )
         };
 
+        // This is by far the most frequent one on LLM1v6SQ. Optimize the test
+        // by placing the if-statement first.
         let (value, instr_len) = if instructions
             .starts_with(&[0xc7, 0x80, 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         {
@@ -338,6 +349,7 @@ impl SvmGuest {
                 }
                 _ => {
                     log::error!("{:#x?}", self.registers);
+                    log::error!("{:#x?}", self.vmcb);
                     panic!("Unhandled APIC access instructions: {:02x?}", instructions);
                 }
             }
@@ -345,26 +357,23 @@ impl SvmGuest {
 
         self.registers.rip += instr_len;
 
+        let message_type = value.get_bits(8..=10);
         let faulting_gpa = self.vmcb.control_area.exit_info2;
         let apic_register = faulting_gpa & 0xfff;
         if apic_register != 0xb0 {
-            //log::debug!("APIC reg:{apic_register:#x} <= {value:#x}");
+            log::debug!("APIC reg:{apic_register:#x} <= {value:#x}");
         }
 
         // If the faulting access is not because of sending Startup IPI (0b110)
         // via the Interrupt Command Register Low (0x300), do the write access
         // the guest wanted to do and bail out.
         // Table 16-2. APIC Registers
-        if apic_register != 0x300 {
+        if message_type != 0b110 || apic_register != 0x300 {
             // Safety: GPA is same as PA in our NTPs, and the faulting address
             // is always the local APIC page, which is writable in the host
             // address space.
-            unsafe { *(faulting_gpa as *mut u32) = value };
-            return;
-        }
-        let message_type = value.get_bits(8..=10);
-        if message_type != 0b110 {
-            unsafe { *(faulting_gpa as *mut u32) = value };
+            let apic_reg = faulting_gpa as *mut u32;
+            unsafe { apic_reg.write_volatile(value) };
             return;
         }
 
@@ -389,7 +398,7 @@ impl SvmGuest {
         let vector = value.get_bits(0..=7) as u8;
         let apic_id = icr_high_value.get_bits(24..=31) as u8;
         let processor_id = apic_id::processor_id_from(apic_id).unwrap() as usize;
-        log::debug!("SIPI to {apic_id} with vector {vector:#x?}");
+        log::info!("SIPI to {apic_id} with vector {vector:#x?}");
         assert!(vector != GuestActivityState::WaitForSipi as u8);
 
         // Update the activity state of the target processor with the obtained
@@ -775,6 +784,8 @@ fn get_segment_limit(table_base: u64, selector: u16) -> u32 {
 struct SharedGuestData {
     npt: RwLock<NestedPageTables>,
     activity_states: [AtomicU8; 0xff],
+    received_sipi_count: AtomicU8,
+    expected_sipi_count: u8,
 }
 
 impl SharedGuestData {
@@ -794,6 +805,8 @@ impl SharedGuestData {
             activity_states: core::array::from_fn(|_| {
                 AtomicU8::new(GuestActivityState::Active as u8)
             }),
+            received_sipi_count: AtomicU8::new(0),
+            expected_sipi_count: apic_id::PROCESSOR_COUNT.load(Ordering::Relaxed) - 1,
         }
     }
 }
