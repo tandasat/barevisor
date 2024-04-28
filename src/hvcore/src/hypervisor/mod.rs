@@ -23,7 +23,7 @@ use crate::{hypervisor::registers::Registers, GdtTss, PagingStructures};
 /// Hyperjacks the current system by virtualizing all logical processors on this
 /// system.
 pub fn virtualize_system(shared_host: SharedHostData) {
-    serial_logger::init(log::LevelFilter::Info);
+    serial_logger::init(log::LevelFilter::Debug);
     log::info!("Virtualizing the all processors");
 
     apic_id::init();
