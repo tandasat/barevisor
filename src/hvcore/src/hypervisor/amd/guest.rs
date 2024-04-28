@@ -345,26 +345,23 @@ impl SvmGuest {
 
         self.registers.rip += instr_len;
 
+        let message_type = value.get_bits(8..=10);
         let faulting_gpa = self.vmcb.control_area.exit_info2;
         let apic_register = faulting_gpa & 0xfff;
         if apic_register != 0xb0 {
-            //log::debug!("APIC reg:{apic_register:#x} <= {value:#x}");
+            log::debug!("APIC reg:{apic_register:#x} <= {value:#x}");
         }
 
         // If the faulting access is not because of sending Startup IPI (0b110)
         // via the Interrupt Command Register Low (0x300), do the write access
         // the guest wanted to do and bail out.
         // Table 16-2. APIC Registers
-        if apic_register != 0x300 {
+        if message_type != 0b110 || apic_register != 0x300 {
             // Safety: GPA is same as PA in our NTPs, and the faulting address
             // is always the local APIC page, which is writable in the host
             // address space.
-            unsafe { *(faulting_gpa as *mut u32) = value };
-            return;
-        }
-        let message_type = value.get_bits(8..=10);
-        if message_type != 0b110 {
-            unsafe { *(faulting_gpa as *mut u32) = value };
+            let apic_reg = faulting_gpa as *mut u32;
+            unsafe { apic_reg.write_volatile(value) };
             return;
         }
 

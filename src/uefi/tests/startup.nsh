@@ -12,7 +12,9 @@ if exist fs3:uefi_hv.efi then
   fs3:
 endif
 
-# Do not connect to a decice with `-nc`. Connecting to a device makes LLM1v6SQ
+# Do not connect to a device with `-nc`. Connecting to a device makes LLM1v6SQ
 # substantially slower.
 load -nc uefi_hv.efi
+
+# Confirm that Barevisor is installed.
 check_hv_vendor.efi
