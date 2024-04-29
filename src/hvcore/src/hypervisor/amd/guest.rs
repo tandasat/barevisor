@@ -11,7 +11,6 @@ use x86::{
     bits64::{paging::BASE_PAGE_SHIFT, rflags::RFlags},
     controlregs::cr3_write,
     cpuid::cpuid,
-    msr::IA32_APIC_BASE,
     segmentation::{cs, ds, es, ss},
 };
 
@@ -275,9 +274,7 @@ impl SvmGuest {
     }
 
     fn intercept_apic_write(&mut self, enable: bool) {
-        assert!(self.id == 0);
-
-        let apic_base_raw = rdmsr(IA32_APIC_BASE);
+        let apic_base_raw = rdmsr(x86::msr::IA32_APIC_BASE);
         let apic_base = apic_base_raw & !0xfff;
         let pt_index = apic_base.get_bits(12..=20) as usize; // [20:12]
 
@@ -779,7 +776,7 @@ impl SharedGuestData {
         let mut npt = NestedPageTables::new();
         npt.build_identity();
 
-        let apic_base_raw = rdmsr(IA32_APIC_BASE);
+        let apic_base_raw = rdmsr(x86::msr::IA32_APIC_BASE);
         assert!(!apic_base_raw.get_bit(10), "x2APIC is enabled");
         assert!(apic_base_raw.get_bit(11), "APIC is disabled");
         let apic_base = apic_base_raw & !0xfff;

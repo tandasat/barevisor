@@ -1,4 +1,5 @@
 use core::ptr::addr_of;
+
 use x86::bits64::paging::{BASE_PAGE_SHIFT, BASE_PAGE_SIZE, LARGE_PAGE_SIZE};
 
 use crate::{hypervisor::intel::mtrr::MemoryType, hypervisor::platform_ops};

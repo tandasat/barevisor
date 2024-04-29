@@ -1,5 +1,6 @@
-use alloc::boxed::Box;
 use core::ptr::addr_of;
+
+use alloc::boxed::Box;
 use x86::bits64::paging::{BASE_PAGE_SHIFT, LARGE_PAGE_SIZE};
 
 use super::{platform_ops, support::zeroed_box};

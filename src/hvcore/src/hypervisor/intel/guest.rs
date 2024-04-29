@@ -7,15 +7,13 @@ use alloc::{
 };
 use spin::once::Once;
 use x86::{
-    bits64::paging::BASE_PAGE_SIZE,
-    bits64::rflags::RFlags,
-    controlregs::cr2_write,
-    controlregs::{Cr0, Cr4},
+    bits64::{paging::BASE_PAGE_SIZE, rflags::RFlags},
+    controlregs::{cr2_write, Cr0, Cr4},
     debugregs::{dr0_write, dr1_write, dr2_write, dr3_write, dr6_write, Dr6},
-    segmentation::{cs, ds, es, fs, gs, ss},
-    segmentation::{CodeSegmentType, DataSegmentType, SystemDescriptorTypes64},
+    segmentation::{
+        cs, ds, es, fs, gs, ss, CodeSegmentType, DataSegmentType, SystemDescriptorTypes64,
+    },
     vmx::vmcs,
-    vmx::vmcs::control::SecondaryControls,
 };
 
 use crate::hypervisor::{
@@ -23,10 +21,8 @@ use crate::hypervisor::{
     platform_ops,
     registers::Registers,
     segment::SegmentDescriptor,
-    support::Page,
-    support::{zeroed_box, InterruptGuard},
-    x86_instructions::{cr0, cr4, rdmsr},
-    x86_instructions::{cr3, lar, ldtr, lsl, sgdt, sidt, tr},
+    support::{zeroed_box, InterruptGuard, Page},
+    x86_instructions::{cr0, cr3, cr4, lar, ldtr, lsl, rdmsr, sgdt, sidt, tr},
     SHARED_HOST_DATA,
 };
 
@@ -609,8 +605,9 @@ fn get_adjusted_guest_cr0(cr0: Cr0) -> Cr0 {
 
     // Read the secondary processor-based VM-execution controls to check for UnrestrictedGuest support.
     let secondary_proc_based_ctls2 = vmread(vmcs::control::SECONDARY_PROCBASED_EXEC_CONTROLS);
-    let unrestricted_guest =
-        secondary_proc_based_ctls2 as u32 & SecondaryControls::UNRESTRICTED_GUEST.bits() != 0;
+    let unrestricted_guest = secondary_proc_based_ctls2 as u32
+        & vmcs::control::SecondaryControls::UNRESTRICTED_GUEST.bits()
+        != 0;
 
     if unrestricted_guest {
         // if the guest is unrestricted, only set these bits if the guest requested them to be set
