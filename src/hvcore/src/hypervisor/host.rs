@@ -36,8 +36,7 @@ fn virtualize_core<Arch: Architecture>(registers: &Registers) -> ! {
     guest.activate();
     guest.initialize(registers);
 
-    // Then, run the guest until events that the hypervisor (this code) needs to
-    // handle occurs.
+    // Then, run the guest until events that the host needs to handle occurs.
     log::info!("Starting the guest");
     loop {
         match guest.run() {
@@ -55,28 +54,28 @@ fn handle_cpuid<T: Guest>(guest: &mut T, info: &InstructionInfo) {
     let leaf = guest.regs().rax as u32;
     let sub_leaf = guest.regs().rcx as u32;
     log::trace!("CPUID {leaf:#x?} {sub_leaf:#x?}");
-    let mut regs = cpuid!(leaf, sub_leaf);
+    let mut cpuid_result = cpuid!(leaf, sub_leaf);
 
     if leaf == HV_CPUID_VENDOR_AND_MAX_FUNCTIONS {
         // If the hypervisor vendor name is asked, return our hypervisor name.
-        regs.ebx = OUR_HV_VENDOR_NAME_EBX;
-        regs.ecx = OUR_HV_VENDOR_NAME_ECX;
-        regs.edx = OUR_HV_VENDOR_NAME_EDX;
+        cpuid_result.ebx = OUR_HV_VENDOR_NAME_EBX;
+        cpuid_result.ecx = OUR_HV_VENDOR_NAME_ECX;
+        cpuid_result.edx = OUR_HV_VENDOR_NAME_EDX;
     } else if leaf == 1 {
         // On the Intel processor, CPUID.1.ECX[5] indicates if VT-x is supported.
         // Clear this to prevent other hypervisor tries to use it. On AMD, it is
         // a reserved bit.
         // See: Table 3-10. Feature Information Returned in the ECX Register
-        regs.ecx &= !(1 << 5);
+        cpuid_result.ecx &= !(1 << 5);
     } else if leaf == HV_CPUID_INTERFACE {
         // If the guest asks whether Hyper-V enlightenment is supported, say no.
-        regs.eax = 0;
+        cpuid_result.eax = 0;
     }
 
-    guest.regs().rax = u64::from(regs.eax);
-    guest.regs().rbx = u64::from(regs.ebx);
-    guest.regs().rcx = u64::from(regs.ecx);
-    guest.regs().rdx = u64::from(regs.edx);
+    guest.regs().rax = u64::from(cpuid_result.eax);
+    guest.regs().rbx = u64::from(cpuid_result.ebx);
+    guest.regs().rcx = u64::from(cpuid_result.ecx);
+    guest.regs().rdx = u64::from(cpuid_result.edx);
     guest.regs().rip = info.next_rip;
 }
 

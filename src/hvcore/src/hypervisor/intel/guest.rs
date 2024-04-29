@@ -1,25 +1,16 @@
+use core::{arch::global_asm, ptr::addr_of};
+
 use alloc::{
     boxed::Box,
     format,
     string::{String, ToString},
 };
-use x86::{
-    bits64::paging::BASE_PAGE_SIZE,
-    controlregs::{Cr0, Cr4},
-};
-
-use crate::hypervisor::{
-    host::{Guest, InstructionInfo, VmExitReason},
-    platform_ops,
-    support::{zeroed_box, InterruptGuard},
-    x86_instructions::{cr0, cr4, rdmsr},
-};
-
-use core::{arch::global_asm, ptr::addr_of};
 use spin::once::Once;
 use x86::{
+    bits64::paging::BASE_PAGE_SIZE,
     bits64::rflags::RFlags,
     controlregs::cr2_write,
+    controlregs::{Cr0, Cr4},
     debugregs::{dr0_write, dr1_write, dr2_write, dr3_write, dr6_write, Dr6},
     segmentation::{cs, ds, es, fs, gs, ss},
     segmentation::{CodeSegmentType, DataSegmentType, SystemDescriptorTypes64},
@@ -28,22 +19,18 @@ use x86::{
 };
 
 use crate::hypervisor::{
+    host::{Guest, InstructionInfo, VmExitReason},
+    platform_ops,
     registers::Registers,
     segment::SegmentDescriptor,
     support::Page,
+    support::{zeroed_box, InterruptGuard},
+    x86_instructions::{cr0, cr4, rdmsr},
     x86_instructions::{cr3, lar, ldtr, lsl, sgdt, sidt, tr},
     SHARED_HOST_DATA,
 };
 
 use super::epts::Epts;
-
-struct SharedGuestData {
-    msr_bitmaps: Box<Page>,
-    epts: Box<Epts>,
-}
-
-/// A collection of data that the hypervisor depends on for its entire lifespan.
-static SHARED_GUEST_DATA: Once<SharedGuestData> = Once::new();
 
 pub(crate) struct VmxGuest {
     registers: Registers,
@@ -572,6 +559,13 @@ impl VmxGuest {
     }
 }
 
+struct SharedGuestData {
+    msr_bitmaps: Box<Page>,
+    epts: Box<Epts>,
+}
+
+static SHARED_GUEST_DATA: Once<SharedGuestData> = Once::new();
+
 extern "C" {
     /// Runs the guest until VM-exit occurs.
     fn run_vmx_guest(registers: &mut Registers) -> u64;
@@ -594,7 +588,7 @@ enum VmxControl {
 #[allow(dead_code)]
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(crate) enum GuestActivityState {
+enum GuestActivityState {
     /// The logical processor is executing instructions normally.
     Active = 0,
 
@@ -670,7 +664,7 @@ bitfield::bitfield! {
     ///
     /// Reference: Intel® 64 and IA-32 Architectures Software Developer's Manual.
     #[derive(Clone, Copy)]
-    pub struct VmxSegmentAccessRights(u32);
+    struct VmxSegmentAccessRights(u32);
     impl Debug;
 
     /// Extracts or sets the segment type (bits 3:0). This field specifies the type of segment or gate descriptor,
