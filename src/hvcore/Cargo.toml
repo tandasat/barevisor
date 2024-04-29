@@ -29,11 +29,10 @@ ctor = "0.2"
 env_logger = "0.11"
 
 [features]
-# TBD
 default = []
 
-# Supports being loaded as a UEFI module.
-# TODO: guard all dependencies.
+# Enables logic to support being loaded as a UEFI driver. Note that even without
+# this feature, UEFI specific logic is still compiled in, without never executed.
 uefi = []
 
 [workspace.lints.rust]
