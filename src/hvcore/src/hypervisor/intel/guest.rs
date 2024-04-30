@@ -275,33 +275,31 @@ impl VmxGuest {
     }
 
     fn initialize_host(&self) {
-        let gdtr = sgdt();
-
         let shared_host = SHARED_HOST_DATA.get().unwrap();
+
         let cr3 = if let Some(host_pt) = &shared_host.pt {
+            log::debug!("Switching the host CR3");
             addr_of!(*host_pt.as_ref()) as u64
         } else {
             cr3()
         };
-        let gdt_base = if let Some(host_gdt_and_tss) = &shared_host.gdts {
-            let x = &host_gdt_and_tss[self.id].gdt[0];
-            x as *const _ as u64
+
+        let (gdt_base, tr, tss_base) = if let Some(host_gdt_and_tss) = &shared_host.gdts {
+            log::debug!("Switching the host GDTR");
+            let gdt_base = addr_of!(host_gdt_and_tss[self.id].gdt[0]) as u64;
+            let tr = host_gdt_and_tss[self.id].tr.unwrap();
+            let tss = host_gdt_and_tss[self.id].tss.as_ref().unwrap();
+            let tss_base = tss.as_ref() as *const _ as u64;
+            (gdt_base, tr, tss_base)
         } else {
-            gdtr.base as u64
+            let gdtr = sgdt();
+            let tr = tr();
+            let tss_base = SegmentDescriptor::try_from_gdtr(&gdtr, tr).unwrap().base();
+            (gdtr.base as u64, tr, tss_base)
         };
-        let tr = if let Some(host_gdt_and_tss) = &shared_host.gdts {
-            host_gdt_and_tss[self.id].tr.unwrap()
-        } else {
-            tr()
-        };
-        let tss_base = if let Some(host_gdt_and_tss) = &shared_host.gdts {
-            let x = host_gdt_and_tss[self.id].tss.as_ref();
-            let x = x.unwrap();
-            x.as_ref() as *const _ as u64
-        } else {
-            SegmentDescriptor::try_from_gdtr(&gdtr, tr).unwrap().base()
-        };
+
         let idt_base = if let Some(_host_idt) = &shared_host.idts {
+            log::debug!("Switching the host IDTR");
             unimplemented!()
         } else {
             let idtr = sidt();

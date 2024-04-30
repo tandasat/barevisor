@@ -480,21 +480,20 @@ impl SvmGuest {
 
     fn initialize_host(&mut self) {
         let shared_host = SHARED_HOST_DATA.get().unwrap();
-        let ops = platform_ops::get();
 
         if let Some(host_pt) = &shared_host.pt {
+            log::debug!("Switching the host CR3");
             let pml4 = addr_of!(*host_pt.as_ref());
-            unsafe { cr3_write(ops.pa(pml4 as _)) };
-            log::debug!("Updated CR3");
+            unsafe { cr3_write(platform_ops::get().pa(pml4 as _)) };
         }
 
         if let Some(host_gdt_and_tss) = &shared_host.gdts {
+            log::debug!("Switching the host GDTR");
             host_gdt_and_tss[self.id].apply().unwrap();
-            log::debug!("Updated GDTR");
         }
 
         if let Some(_host_idt) = &shared_host.idts {
-            log::debug!("Updated IDTR");
+            log::debug!("Switching the host IDTR");
             unimplemented!();
         }
 
