@@ -1,5 +1,6 @@
-use alloc::vec::Vec;
 use core::{arch::asm, ops::Range};
+
+use alloc::vec::Vec;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use x86::bits64::paging::BASE_PAGE_SHIFT;
