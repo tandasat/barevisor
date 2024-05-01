@@ -3,6 +3,7 @@
 ;// Captures current register values.
 ;//
 ;// extern "C" fn capture_registers(registers: &mut GuestRegisters);
+.align 16
 .global capture_registers
 capture_registers:
     ;// Capture general purpose and volatile XMM registers.

@@ -25,6 +25,7 @@ extern "C" {
 }
 global_asm!(
     r#"
+    .align 16
     .global switch_stack
     switch_stack:
         xchg    bx, bx

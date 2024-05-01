@@ -22,6 +22,7 @@
 ;// the host RIP is configured so.
 ;//
 ;// extern "C" fn run_vmx_guest(registers: &mut GuestRegisters) -> u64;
+.align 16
 .global run_vmx_guest
 run_vmx_guest:
     xchg    bx, bx

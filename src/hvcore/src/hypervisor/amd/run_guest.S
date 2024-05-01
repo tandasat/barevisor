@@ -1,7 +1,7 @@
 ;// The module containing the `run_svm_guest` function.
 
 
-
+.align 16
 .global asm_vmsave
 asm_vmsave:
     mov     rax, rcx
@@ -36,6 +36,7 @@ asm_vmsave:
 ;//      15.6 #VMEXIT
 ;//
 ;// extern "C" fn run_svm_guest(registers: &mut GuestRegisters, vmcb_pa: u64);
+.align 16
 .global run_svm_guest
 run_svm_guest:
     xchg    bx, bx
