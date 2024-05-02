@@ -59,7 +59,7 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
 
     hv::virtualize_system(hv::SharedHostData {
         pt: Some(host_pt),
-        idts: None,
+        idt: Some(hv::InterruptDescriptorTable::new(host_gdt_and_tss[0].cs)),
         gdts: Some(host_gdt_and_tss),
     });
 

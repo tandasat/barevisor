@@ -1,7 +1,7 @@
 use core::ptr::addr_of;
 
 use alloc::boxed::Box;
-use x86::bits64::paging::{BASE_PAGE_SHIFT, LARGE_PAGE_SIZE};
+use x86::bits64::paging::{BASE_PAGE_SHIFT, BASE_PAGE_SIZE, LARGE_PAGE_SIZE};
 
 use super::{platform_ops, support::zeroed_box};
 
@@ -18,12 +18,6 @@ impl PagingStructures {
     }
 }
 
-impl Default for PagingStructures {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[derive(Debug)]
 #[repr(C, align(4096))]
 pub struct PagingStructuresRaw {
@@ -31,6 +25,7 @@ pub struct PagingStructuresRaw {
     pub(crate) pdpt: Pdpt,
     pub(crate) pd: [Pd; 512],
     pub(crate) pt: Pt,
+    pub(crate) pt_apic: Pt,
 }
 
 pub(crate) fn build_identity_(ps: &mut PagingStructuresRaw, npt: bool) {
@@ -50,12 +45,28 @@ pub(crate) fn build_identity_(ps: &mut PagingStructuresRaw, npt: bool) {
         pdpte.set_user(user);
         pdpte.set_pfn(ops.pa(addr_of!(ps.pd[i]) as _) >> BASE_PAGE_SHIFT);
         for pde in &mut ps.pd[i].0.entries {
-            pde.set_present(true);
-            pde.set_writable(true);
-            pde.set_user(user);
-            pde.set_large(true);
-            pde.set_pfn(pa >> BASE_PAGE_SHIFT);
-            pa += LARGE_PAGE_SIZE as u64;
+            if pa == 0 && !npt {
+                pde.set_present(true);
+                pde.set_writable(true);
+                pde.set_user(user);
+                pde.set_pfn(ops.pa(addr_of!(ps.pt) as _) >> BASE_PAGE_SHIFT);
+                for pte in &mut ps.pt.0.entries {
+                    pte.set_present(true);
+                    pte.set_writable(true);
+                    pte.set_user(user);
+                    pte.set_pfn(pa >> BASE_PAGE_SHIFT);
+                    pa += BASE_PAGE_SIZE as u64;
+                }
+                // Make the null page invalid to detect null pointer access.
+                ps.pt.0.entries[0].set_present(false);
+            } else {
+                pde.set_present(true);
+                pde.set_writable(true);
+                pde.set_user(user);
+                pde.set_large(true);
+                pde.set_pfn(pa >> BASE_PAGE_SHIFT);
+                pa += LARGE_PAGE_SIZE as u64;
+            }
         }
     }
 }

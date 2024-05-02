@@ -19,8 +19,8 @@ use crate::hypervisor::{
     host::{Guest, InstructionInfo, VmExitReason},
     platform_ops,
     registers::Registers,
-    support::{zeroed_box, InterruptGuard},
-    x86_instructions::{cr0, cr3, cr4, rdmsr, sgdt, sidt, wrmsr},
+    support::zeroed_box,
+    x86_instructions::{cr0, cr3, cr4, lidt, rdmsr, sgdt, sidt, wrmsr},
     SHARED_HOST_DATA,
 };
 
@@ -280,7 +280,7 @@ impl SvmGuest {
 
         let shared_guest = SHARED_GUEST_DATA.get().unwrap();
         let mut npt = shared_guest.npt.write();
-        let pt = npt.pt();
+        let pt = npt.apic_pt();
         pt.0.entries[pt_index].set_writable(!enable);
 
         // Other processors will have stale TLB entries as we do not do TLB
@@ -291,6 +291,11 @@ impl SvmGuest {
     }
 
     fn handle_nested_page_fault(&mut self) {
+        if self.id as u8 == apic_id::PROCESSOR_COUNT.load(Ordering::Relaxed) - 1 {
+            log::debug!("Stopping APIC write interception");
+            self.intercept_apic_write(false);
+        }
+
         let instructions = unsafe {
             core::slice::from_raw_parts(
                 self.vmcb.control_area.guest_instruction_bytes.as_ptr(),
@@ -335,6 +340,7 @@ impl SvmGuest {
                 }
                 _ => {
                     log::error!("{:#x?}", self.registers);
+                    log::error!("{:#x?}", self.vmcb);
                     panic!("Unhandled APIC access instructions: {:02x?}", instructions);
                 }
             }
@@ -345,8 +351,8 @@ impl SvmGuest {
         let message_type = value.get_bits(8..=10);
         let faulting_gpa = self.vmcb.control_area.exit_info2;
         let apic_register = faulting_gpa & 0xfff;
-        if apic_register != 0xb0 {
-            log::trace!("APIC reg:{apic_register:#x} <= {value:#x}");
+        if apic_register != 0xb0 && self.id == 0 {
+            log::debug!("APIC reg:{apic_register:#x} <= {value:#x}");
         }
 
         // If the faulting access is not because of sending Startup IPI (0b110)
@@ -439,10 +445,6 @@ impl SvmGuest {
     fn initialize_guest(&mut self) {
         const EFER_SVME: u64 = 1 << 12;
 
-        // Make this function semi-atomic to reduce the chance of registers
-        // changing in between. For example, SS may change frequently on Windows.
-        let _intr_guard = InterruptGuard::new();
-
         let idtr = sidt();
         let gdtr = sgdt();
         let guest_gdt = gdtr.base as u64;
@@ -492,9 +494,9 @@ impl SvmGuest {
             host_gdt_and_tss[self.id].apply().unwrap();
         }
 
-        if let Some(_host_idt) = &shared_host.idts {
+        if let Some(host_idt) = &shared_host.idt {
             log::debug!("Switching the host IDTR");
-            unimplemented!();
+            lidt(&host_idt.idtr());
         }
 
         // Save some of the current register values as host state. They are

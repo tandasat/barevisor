@@ -4,6 +4,7 @@ mod apic_id;
 pub mod gdt_tss;
 mod host;
 mod intel;
+pub mod interrupt_handler;
 pub mod paging_structures;
 pub mod panic;
 pub mod platform_ops;
@@ -19,6 +20,8 @@ use spin::Once;
 use x86::cpuid::cpuid;
 
 use crate::{hypervisor::registers::Registers, GdtTss, PagingStructures};
+
+use self::interrupt_handler::InterruptDescriptorTable;
 
 /// Hyperjacks the current system by virtualizing all logical processors on this
 /// system.
@@ -62,9 +65,9 @@ pub struct SharedHostData {
     /// structure is used for both the host and the guest.
     pub pt: Option<PagingStructures>,
 
-    /// The IDT for the host for each logical processor. If `None`, the
-    /// current IDTs are used for both the host and the guest.
-    pub idts: Option<Vec<u64>>,
+    /// The IDT for the host. If `None`, the current IDT is used for both the
+    /// host and the guest.
+    pub idt: Option<InterruptDescriptorTable>,
 
     /// The GDT and TSS for the host for each logical processor. If `None`,
     /// the current GDTs and TSSes are used for both the host and the guest.

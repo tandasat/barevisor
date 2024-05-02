@@ -24,11 +24,11 @@ impl NestedPageTables {
         let pdpt_index = pa.get_bits(30..=38) as usize; // [38:30]
         let pd_index = pa.get_bits(21..=29) as usize; // [29:21]
         let pde = &mut self.ptr.pd[pdpt_index].0.entries[pd_index];
-        NestedPageTables::split_2mb_(pde, &mut self.ptr.pt);
+        NestedPageTables::split_2mb_(pde, &mut self.ptr.pt_apic);
     }
 
-    pub(crate) fn pt(&mut self) -> &mut Pt {
-        &mut self.pt
+    pub(crate) fn apic_pt(&mut self) -> &mut Pt {
+        &mut self.pt_apic
     }
 
     fn split_2mb_(pde: &mut Entry, pt: &mut Pt) {
@@ -55,12 +55,6 @@ impl NestedPageTables {
         pde.set_writable(true);
         pde.set_user(true);
         pde.set_large(false);
-    }
-}
-
-impl Default for NestedPageTables {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

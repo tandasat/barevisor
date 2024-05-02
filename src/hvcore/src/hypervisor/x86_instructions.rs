@@ -59,6 +59,12 @@ pub(crate) fn cr4_write(val: Cr4) {
     unsafe { x86::controlregs::cr4_write(val) };
 }
 
+/// Write a value to the IDTR register.
+pub(crate) fn lidt(idtr: &DescriptorTablePointer<u64>) {
+    // Safety: this project runs at CPL0.
+    unsafe { x86::dtables::lidt(idtr) };
+}
+
 /// Reads the IDTR register.
 pub(crate) fn sidt() -> DescriptorTablePointer<u64> {
     let mut idtr = DescriptorTablePointer::<u64>::default();

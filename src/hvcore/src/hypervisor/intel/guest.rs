@@ -21,7 +21,7 @@ use crate::hypervisor::{
     platform_ops,
     registers::Registers,
     segment::SegmentDescriptor,
-    support::{zeroed_box, InterruptGuard, Page},
+    support::{zeroed_box, Page},
     x86_instructions::{cr0, cr3, cr4, lar, ldtr, lsl, rdmsr, sgdt, sidt, tr},
     SHARED_HOST_DATA,
 };
@@ -176,10 +176,6 @@ impl VmxGuest {
     }
 
     fn initialize_guest(&self) {
-        // Make this function semi-atomic to reduce the chance of registers
-        // changing in between. For example, SS may change frequently on Windows.
-        let _intr_guard = InterruptGuard::new();
-
         let idtr = sidt();
         let gdtr = sgdt();
 
@@ -298,9 +294,9 @@ impl VmxGuest {
             (gdtr.base as u64, tr, tss_base)
         };
 
-        let idt_base = if let Some(_host_idt) = &shared_host.idts {
+        let idt_base = if let Some(host_idt) = &shared_host.idt {
             log::debug!("Switching the host IDTR");
-            unimplemented!()
+            host_idt.idtr().base as u64
         } else {
             let idtr = sidt();
             idtr.base as u64

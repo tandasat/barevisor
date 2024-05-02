@@ -3,7 +3,7 @@ use x86::{
     bits64::task::TaskStateSegment,
     dtables::{lgdt, DescriptorTablePointer},
     segmentation::{
-        BuildDescriptor, Descriptor, DescriptorBuilder, GateDescriptorBuilder, SegmentSelector,
+        cs, BuildDescriptor, Descriptor, DescriptorBuilder, GateDescriptorBuilder, SegmentSelector,
     },
     task::{load_tr, tr},
 };
@@ -15,6 +15,7 @@ type Gdtr = DescriptorTablePointer<u64>;
 #[derive(Clone, Debug)]
 pub struct GdtTss {
     pub gdt: Vec<u64>,
+    pub cs: SegmentSelector,
     pub tss: Option<Box<TaskStateSegment>>,
     pub tr: Option<SegmentSelector>,
 }
@@ -46,7 +47,8 @@ impl GdtTss {
             None
         };
 
-        Self { gdt, tss, tr }
+        let cs = cs();
+        Self { gdt, cs, tss, tr }
     }
 
     pub fn append_tss(&mut self, tss: Box<TaskStateSegment>) -> &Self {

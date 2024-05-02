@@ -15,6 +15,8 @@ use super::{amd::Amd, intel::Intel};
 
 /// The entry point of the hypervisor.
 pub(crate) fn main(registers: &Registers) -> ! {
+    unsafe { x86::irq::disable() };
+
     if x86::cpuid::CpuId::new().get_vendor_info().unwrap().as_str() == "GenuineIntel" {
         virtualize_core::<Intel>(registers)
     } else {
