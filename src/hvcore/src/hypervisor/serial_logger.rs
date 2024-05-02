@@ -43,12 +43,12 @@ impl log::Log for SerialLogger {
 
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
-            let apic_id = apic_id();
+            let msg = alloc::format!("#{}:{:5}: {}\n", apic_id(), record.level(), record.args());
             // Disable interrupt while acquiring the mutex, to reduce the chance
             // of reentering this code.
             let _intr_guard = InterruptGuard::new();
             let mut uart = self.port.lock();
-            let _ = writeln!(uart, "#{apic_id}:{:5}: {}", record.level(), record.args());
+            let _ = uart.write_str(msg.as_str());
         }
     }
 
