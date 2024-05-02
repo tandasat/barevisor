@@ -39,8 +39,7 @@ impl Registers {
     }
 }
 
-#[repr(C)]
-#[repr(align(16))]
+#[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct Xmm {
     pub(crate) low: u64,
