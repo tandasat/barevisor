@@ -346,7 +346,7 @@ impl SvmGuest {
         let faulting_gpa = self.vmcb.control_area.exit_info2;
         let apic_register = faulting_gpa & 0xfff;
         if apic_register != 0xb0 {
-            log::debug!("APIC reg:{apic_register:#x} <= {value:#x}");
+            log::trace!("APIC reg:{apic_register:#x} <= {value:#x}");
         }
 
         // If the faulting access is not because of sending Startup IPI (0b110)

@@ -126,7 +126,6 @@ run_svm_guest:
     movaps  [r15 + registers_xmm4], xmm4
     movaps  [r15 + registers_xmm5], xmm5
 
-.Exit:
     ;// Discard the stack value pushed at #1.
     pop     rax
 
