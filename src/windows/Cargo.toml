@@ -1,5 +1,5 @@
 [workspace]
-members = ["check_hv_vendor", "win_hv"]
+members = ["check_hv_vendor"]
 resolver = "2"
 
 [workspace.package]

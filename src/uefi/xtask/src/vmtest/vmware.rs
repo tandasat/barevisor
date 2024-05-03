@@ -124,7 +124,7 @@ impl TestVm for Vmware {
             let reader = BufReader::new(output.stdout.unwrap());
             reader
                 .lines()
-                .map_while(std::result::Result::ok)
+                .map_while(Result::ok)
                 .for_each(|line| {
                     println!(
                         "{:>4}: {line}\r",

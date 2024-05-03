@@ -40,6 +40,7 @@ enum Commands {
     BochsIntel,
     /// Start a Bochs VM with an AMD processor
     BochsAmd,
+    #[allow(clippy::doc_markdown)]
     /// Start a VMware VM
     Vmware,
 }
