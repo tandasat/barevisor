@@ -6,22 +6,15 @@ extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use alloc::string::String;
-use uefi::{prelude::*, proto::pi::mp::MpServices};
-use uefi_services::{println, system_table};
+use uefi::{helpers::system_table, prelude::*, println, proto::pi::mp::MpServices};
 
 static PROCESSOR_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 #[entry]
 fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
-    match uefi_services::init(&mut system_table) {
-        Ok(event_opt) => {
-            if let Some(event) = event_opt {
-                // Do not leak the event. This would cause UAF otherwise.
-                system_table.boot_services().close_event(event).unwrap();
-            }
-        }
-        Err(e) => return e.status(),
-    };
+    if let Err(e) = uefi::helpers::init(&mut system_table) {
+        return e.status();
+    }
 
     println!("Executing CPUID(0x40000000) on all logical processors");
     if let Err(e) = run_on_all_processors(|| {
