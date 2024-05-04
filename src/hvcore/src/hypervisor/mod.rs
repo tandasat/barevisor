@@ -15,7 +15,7 @@ mod support;
 mod switch_stack;
 mod x86_instructions;
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use spin::Once;
 use x86::cpuid::cpuid;
 
@@ -71,7 +71,7 @@ pub struct SharedHostData {
 
     /// The GDT and TSS for the host for each logical processor. If `None`,
     /// the current GDTs and TSSes are used for both the host and the guest.
-    pub gdts: Option<Vec<Box<GdtTss>>>,
+    pub gdts: Option<Vec<GdtTss>>,
 }
 
 static SHARED_HOST_DATA: Once<SharedHostData> = Once::new();

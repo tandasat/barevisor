@@ -12,11 +12,24 @@ use super::segment::SegmentDescriptor;
 
 type Gdtr = DescriptorTablePointer<u64>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, derive_deref::Deref, derive_deref::DerefMut)]
 pub struct GdtTss {
+    ptr: Box<GdtTssRaw>,
+}
+
+impl GdtTss {
+    pub fn new_from_current() -> Self {
+        Self {
+            ptr: Box::new(GdtTssRaw::new_from_current()),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct GdtTssRaw {
     pub gdt: Vec<u64>,
     pub cs: SegmentSelector,
-    pub tss: Option<Box<TaskStateSegment>>,
+    pub tss: Option<TaskStateSegment>,
     pub tr: Option<SegmentSelector>,
 }
 
@@ -24,11 +37,9 @@ pub struct GdtTss {
 pub enum GdtTssError {
     #[error("TSS already in use in the current GDT")]
     TssAlreadyInUse,
-    //#[error("TSS does not exist in this GDT")]
-    //NotFound,
 }
 
-impl GdtTss {
+impl GdtTssRaw {
     pub fn new_from_current() -> Self {
         let gdtr = Self::sgdt();
 
@@ -42,7 +53,7 @@ impl GdtTss {
         let tss = if let Some(tr) = tr {
             let sg = SegmentDescriptor::try_from_gdtr(&gdtr, tr).unwrap();
             let tss = sg.base() as *mut TaskStateSegment;
-            Some(unsafe { Box::from_raw(tss) })
+            Some(unsafe { *tss })
         } else {
             None
         };
@@ -51,7 +62,7 @@ impl GdtTss {
         Self { gdt, cs, tss, tr }
     }
 
-    pub fn append_tss(&mut self, tss: Box<TaskStateSegment>) -> &Self {
+    pub fn append_tss(&mut self, tss: TaskStateSegment) -> &Self {
         if self.tss.is_some() || self.tr.is_some() {
             return self;
         }

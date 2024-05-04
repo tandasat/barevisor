@@ -285,7 +285,7 @@ impl VmxGuest {
             let gdt_base = addr_of!(host_gdt_and_tss[self.id].gdt[0]) as u64;
             let tr = host_gdt_and_tss[self.id].tr.unwrap();
             let tss = host_gdt_and_tss[self.id].tss.as_ref().unwrap();
-            let tss_base = tss.as_ref() as *const _ as u64;
+            let tss_base = tss as *const _ as u64;
             (gdt_base, tr, tss_base)
         } else {
             let gdtr = sgdt();

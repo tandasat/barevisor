@@ -39,18 +39,15 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
     if x86::cpuid::CpuId::new().get_vendor_info().unwrap().as_str() == "GenuineIntel" {
         hv::platform_ops::get().run_on_all_processors(|| {
             let new_gdt = Box::leak(Box::new(GdtTss::new_from_current()));
-            new_gdt
-                .append_tss(Box::new(TaskStateSegment::new()))
-                .apply()
-                .unwrap();
+            new_gdt.append_tss(TaskStateSegment::new()).apply().unwrap();
         });
     }
 
     // Create a host GDT and TSS for each processor from the current GDT and TSS.
-    let gdt_tss = Box::new(GdtTss::new_from_current());
-    let mut host_gdt_and_tss = Vec::<Box<GdtTss>>::new();
+    let gdt_tss = GdtTss::new_from_current();
+    let mut host_gdt_tss = Vec::<GdtTss>::new();
     for _ in 0..hv::platform_ops::get().processor_count() {
-        host_gdt_and_tss.push(gdt_tss.clone());
+        host_gdt_tss.push(gdt_tss.clone());
     }
 
     // Build the host page tables.
@@ -59,8 +56,8 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
 
     hv::virtualize_system(hv::SharedHostData {
         pt: Some(host_pt),
-        idt: Some(hv::InterruptDescriptorTable::new(host_gdt_and_tss[0].cs)),
-        gdts: Some(host_gdt_and_tss),
+        idt: Some(hv::InterruptDescriptorTable::new(host_gdt_tss[0].cs)),
+        gdts: Some(host_gdt_tss),
     });
 
     println!("Loaded uefi_hv.efi");
