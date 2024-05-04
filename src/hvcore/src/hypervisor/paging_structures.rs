@@ -7,7 +7,7 @@ use super::{platform_ops, support::zeroed_box};
 
 #[derive(Debug, derive_deref::Deref, derive_deref::DerefMut)]
 pub struct PagingStructures {
-    pub ptr: Box<PagingStructuresRaw>,
+    ptr: Box<PagingStructuresRaw>,
 }
 
 impl Default for PagingStructures {
