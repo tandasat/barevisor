@@ -10,6 +10,12 @@ pub struct PagingStructures {
     pub ptr: Box<PagingStructuresRaw>,
 }
 
+impl Default for PagingStructures {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PagingStructures {
     pub fn new() -> Self {
         Self {
