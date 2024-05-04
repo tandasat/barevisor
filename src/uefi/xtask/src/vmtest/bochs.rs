@@ -3,7 +3,7 @@ use std::{
     env, fmt,
     io::{BufRead, BufReader},
     path::Path,
-    process::{Command, Stdio},
+    process::Stdio,
     sync::mpsc::channel,
     thread,
     time::{Duration, SystemTime},
@@ -24,12 +24,7 @@ impl TestVm for Bochs {
         // Start a threads that tries to connect to Bochs in an infinite loop.
         let _unused = thread::spawn(|| loop {
             thread::sleep(Duration::from_secs(1));
-            let client = if env::consts::OS == "macos" {
-                "nc"
-            } else {
-                "telnet"
-            };
-            let output = UnixCommand::new(client)
+            let output = UnixCommand::new("nc")
                 .args(["localhost", "14449"])
                 .stdout(Stdio::piped())
                 .stdin(Stdio::piped())
@@ -38,27 +33,27 @@ impl TestVm for Bochs {
 
             let now = SystemTime::now();
             let reader = BufReader::new(output.stdout.unwrap());
-            reader
-                .lines()
-                .map_while(Result::ok)
-                .for_each(|line| {
-                    println!(
-                        "{:>4}: {line}\r",
-                        now.elapsed().unwrap_or_default().as_secs()
-                    );
-                });
+            reader.lines().map_while(Result::ok).for_each(|line| {
+                println!(
+                    "{:>4}: {line}\r",
+                    now.elapsed().unwrap_or_default().as_secs()
+                );
+            });
         });
 
         let cpu_type = self.cpu.to_string().to_lowercase();
         let _unused = thread::spawn(move || {
-            // Start Bochs from the "tests" directory in background.
-            let bochs = if cfg!(target_os = "windows") {
-                r"C:\Program Files\Bochs-2.8\bochs.exe"
+            // Use WSL to launch Bochs on Windows as we anyway depends on telnet
+            // on WSL. Not worth time to try to make Windows telnet work.
+            let os_type = if cfg!(target_os = "windows") {
+                "linux"
             } else {
-                "bochs"
+                env::consts::OS
             };
-            let bxrc = format!("./bochs/{}_{cpu_type}.bxrc", env::consts::OS);
-            let output = Command::new(bochs)
+            let bxrc = format!("./bochs/{os_type}_{cpu_type}.bxrc");
+
+            // Start Bochs from the "tests" directory in background.
+            let output = UnixCommand::new("bochs")
                 .args(["-q", "-unlock", "-f", &bxrc])
                 .current_dir(Path::new("./tests"))
                 .stdout(Stdio::piped())
