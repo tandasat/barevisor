@@ -23,7 +23,7 @@ macro_rules! print {
 
 #[doc(hidden)]
 pub(crate) fn _print(args: core::fmt::Arguments<'_>) {
-    core::fmt::Write::write_fmt(&mut *DEBUG_PRINTER.lock(), args).unwrap();
+    Write::write_fmt(&mut *DEBUG_PRINTER.lock(), args).unwrap();
 }
 
 static DEBUG_PRINTER: Mutex<DbgOutput> = Mutex::new(DbgOutput);
