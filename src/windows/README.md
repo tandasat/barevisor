@@ -18,7 +18,7 @@ Barevisor can be compiled into both UEFI driver and Windows kernel driver. Those
 
 ## Building
 
-⚠️Building Barevisor as a Windows kernel-driver requires Windows as a development environment, due to dependencies onto Enterprise WDK (eWDK).
+⛔️ Building Barevisor as a Windows kernel-driver requires Windows as a development environment, due to dependencies onto Enterprise WDK (eWDK).
 
 1. Download [eWDK](https://learn.microsoft.com/en-us/legal/windows/hardware/enterprise-wdk-license-2022).
 
