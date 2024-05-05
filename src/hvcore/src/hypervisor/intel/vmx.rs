@@ -1,10 +1,10 @@
 use alloc::boxed::Box;
 
 use crate::hypervisor::{
+    host::Extension,
     intel::guest::{get_adjusted_cr0, get_adjusted_cr4},
     platform_ops,
     support::zeroed_box,
-    host::Extension,
     x86_instructions::{cr0, cr0_write, cr4, cr4_write, rdmsr, wrmsr},
 };
 
