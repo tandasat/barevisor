@@ -4,6 +4,12 @@ Barevisor as a Windows kernel driver for Intel and AMD processors.
 
 ![](images/demo.gif)
 
+- [win\_hv](#win_hv)
+  - [Why kernel driver-based hypervisor](#why-kernel-driver-based-hypervisor)
+  - [Building](#building)
+  - [Setting up a VMware VM](#setting-up-a-vmware-vm)
+  - [Loading on and virtualizing a Windows](#loading-on-and-virtualizing-a-windows)
+
 
 ## Why kernel driver-based hypervisor
 

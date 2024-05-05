@@ -3,6 +3,7 @@
 //! ```shell
 //! cargo xtask
 //! ```
+
 use cargo::{cargo_run, Action, Package, Profile};
 use clap::{Parser, Subcommand};
 use std::{

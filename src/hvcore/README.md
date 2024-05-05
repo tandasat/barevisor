@@ -1,5 +1,11 @@
 # hvcore
 
+- [hvcore](#hvcore)
+  - [What](#what)
+  - [Why](#why)
+  - [How](#how)
+
+
 ## What
 
 What does this do?
@@ -49,10 +55,10 @@ share a device, there is no need to virtualize a device.
 
 This approach, also referred to as passthough and thin hypervisors, contributes
 to significantly smaller code and a simpler design, as well as minimizing a
-performance impact to the system. The simplest implementation that is sufficient
-to hyperjack Windows are less than 2000 lines of C code and about 30% of them are
-comments (see [SimpleSvm](https://github.com/tandasat/SimpleSvm) and
-[SimpleVisor](https://github.com/ionescu007/SimpleVisor)).
+performance impact to the system. Some of the simplest implementations that are
+sufficient to hyperjack Windows are less than 2000 lines in C code where 30% to
+50% of them are comments (see [SimpleSvm](https://github.com/tandasat/SimpleSvm)
+and [SimpleVisor](https://github.com/ionescu007/SimpleVisor)).
 
 With that background knowledge, let us dive into Barevisor code!
 

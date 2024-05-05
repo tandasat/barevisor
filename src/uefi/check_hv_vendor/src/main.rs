@@ -1,3 +1,14 @@
+//! The hypervisor vendor checker for UEFI.
+//!
+//! ```shell
+//! fs1:\> check_hv_vendor.efi
+//! Executing CPUID(0x40000000) on all logical processors
+//! CPU 0: Barevisor!
+//! CPU 1: Barevisor!
+//! CPU 2: Barevisor!
+//! CPU 3: Barevisor!
+//! ```
+
 #![no_main]
 #![no_std]
 

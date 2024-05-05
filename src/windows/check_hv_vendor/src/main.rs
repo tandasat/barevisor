@@ -1,4 +1,13 @@
 //! The hypervisor vendor checker for Windows.
+//!
+//! ```text
+//! > check_hv_vendor.exe
+//! Executing CPUID(0x40000000) on all logical processors
+//! CPU 0: Barevisor!
+//! CPU 1: Barevisor!
+//! CPU 2: Barevisor!
+//! CPU 3: Barevisor!
+//! ```
 
 fn main() {
     println!("Executing CPUID(0x40000000) on all logical processors");
