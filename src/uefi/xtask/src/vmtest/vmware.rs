@@ -1,6 +1,6 @@
 use crate::DynError;
 use std::{
-    fs,
+    env, fs,
     io::{BufRead, BufReader, Write},
     path::Path,
     process::{Command, Stdio},
@@ -11,34 +11,39 @@ use std::{
 
 use super::{copy_artifacts_to, TestVm, UnixCommand};
 
-pub(crate) struct Vmware {}
+pub(crate) struct Vmware;
 
 impl TestVm for Vmware {
     fn deploy(&self, release: bool) -> Result<(), DynError> {
         let output = UnixCommand::new("dd")
-            .args(["if=/dev/zero", "of=/tmp/hvclass.img", "bs=1k", "count=2880"])
+            .args([
+                "if=/dev/zero",
+                "of=/tmp/vmware_cd.img",
+                "bs=1k",
+                "count=2880",
+            ])
             .output()?;
         if !output.status.success() {
             Err(format!("dd failed: {output:#?}"))?;
         }
 
         let output = UnixCommand::new("mformat")
-            .args(["-i", "/tmp/hvclass.img", "-f", "2880", "::"])
+            .args(["-i", "/tmp/vmware_cd.img", "-f", "2880", "::"])
             .output()?;
         if !output.status.success() {
             Err(format!("mformat failed: {output:#?}"))?;
         }
 
-        copy_artifacts_to("/tmp/hvclass.img", release)?;
+        copy_artifacts_to("/tmp/vmware_cd.img", release)?;
 
         let output = UnixCommand::new("mkisofs")
             .args([
                 "-eltorito-boot",
-                "hvclass.img",
+                "vmware_cd.img",
                 "-no-emul-boot",
                 "-o",
-                "/tmp/hvclass.iso",
-                "/tmp/hvclass.img",
+                "/tmp/vmware_cd.iso",
+                "/tmp/vmware_cd.img",
             ])
             .output()?;
         if !output.status.success() {
@@ -59,8 +64,7 @@ impl TestVm for Vmware {
         let vmx_path = if wsl::is_wsl() {
             windows_path("./tests/samples/vmware/NoOS_windows.vmx")
         } else {
-            //format!("./tests/samples/vmware/NoOS_{}.vmx", env::consts::OS)
-            r"C:\Users\tanda\Documents\Virtual Machines\Class_Windows\Class_Windows.vmx".to_string()
+            format!("./tests/samples/vmware/NoOS_{}.vmx", env::consts::OS)
         };
 
         // Stop the VM if requested. This is best effort and failures are ignored.
@@ -122,15 +126,12 @@ impl TestVm for Vmware {
 
             // Read and print stdout as they come in. This does not return.
             let reader = BufReader::new(output.stdout.unwrap());
-            reader
-                .lines()
-                .map_while(Result::ok)
-                .for_each(|line| {
-                    println!(
-                        "{:>4}: {line}\r",
-                        now.elapsed().unwrap_or_default().as_secs()
-                    );
-                });
+            reader.lines().map_while(Result::ok).for_each(|line| {
+                println!(
+                    "{:>4}: {line}\r",
+                    now.elapsed().unwrap_or_default().as_secs()
+                );
+            });
         });
 
         println!("🕒 Please select 'EFI Internal Shell (Unsupported option)' on VMware...");
