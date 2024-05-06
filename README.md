@@ -21,15 +21,21 @@ The primary goal of this project is to provide simple code demonstrate how hardw
 
 ## Package organization
 
-The project contains two workspaces: `src/windows/` and `src/uefi/`, building the hypervisor as a Windows kernel driver and UEFI driver, respectively.
-
-Both workspaces depend on `src/hvcore/`, the core, OS agnostic hypervisor implementation as illustrated below:
+The project contains two workspaces: `src/windows/` and `src/uefi/`, building the hypervisor as a Windows kernel driver and UEFI driver, respectively. Both workspaces depend on `src/hvcore/`, the core, OS agnostic hypervisor implementation as illustrated below:
 
 ```
     windows --\
                +-- (links) --> hvcore
     uefi -----/
 ```
+
+You can build `src/windows/` only on Windows, while `src/uefi/` is cross-platform:
+
+| Dev. env. | `src/windows/` | `src/uefi/` |
+|-----------|----------------|-------------|
+| Windows   | ✅            | ✅          |
+| Ubuntu    | ❌            | ✅          |
+| macOS     | ❌            | ✅          |
 
 For details of each workspace and package, and build instructions, see respective README.md files.
 

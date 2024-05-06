@@ -7,8 +7,9 @@ Barevisor as a Windows kernel driver for Intel and AMD processors.
 - [win\_hv](#win_hv)
   - [Why kernel driver-based hypervisor](#why-kernel-driver-based-hypervisor)
   - [Building](#building)
-  - [Setting up a VMware VM](#setting-up-a-vmware-vm)
-  - [Loading on and virtualizing a Windows](#loading-on-and-virtualizing-a-windows)
+  - [Testing with VMware](#testing-with-vmware)
+    - [Setting up a VM](#setting-up-a-vm)
+    - [Loading on and virtualizing Windows](#loading-on-and-virtualizing-windows)
 
 
 ## Why kernel driver-based hypervisor
@@ -18,7 +19,9 @@ Barevisor can be compiled into both UEFI driver and Windows kernel driver. Those
 
 ## Building
 
-⛔️ Building Barevisor as a Windows kernel-driver requires Windows as a development environment, due to dependencies onto Enterprise WDK (eWDK).
+⛔️ Windows-only
+
+Building Barevisor as a Windows kernel-driver requires Windows as a development environment, due to dependencies onto Enterprise WDK (eWDK).
 
 1. Download [eWDK](https://learn.microsoft.com/en-us/legal/windows/hardware/enterprise-wdk-license-2022).
 
@@ -73,7 +76,9 @@ Barevisor can be compiled into both UEFI driver and Windows kernel driver. Those
     ```
 
 
-## Setting up a VMware VM
+## Testing with VMware
+
+### Setting up a VM
 
 1. Install Windows 10 or 11 of any edition. Installation of VMware Tools is optional.
 
@@ -116,7 +121,7 @@ Barevisor can be compiled into both UEFI driver and Windows kernel driver. Those
         ![](images/msinfo32.png)
 
 
-## Loading on and virtualizing a Windows
+### Loading on and virtualizing Windows
 
 1. Copy `win_hv.sys` onto the target Windows, for example, `C:\win_hv.sys`.
 
