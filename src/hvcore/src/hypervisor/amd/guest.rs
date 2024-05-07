@@ -776,13 +776,7 @@ impl SharedGuestData {
     fn new() -> Self {
         let mut npt = NestedPageTables::new();
         npt.build_identity();
-
-        let apic_base_raw = rdmsr(x86::msr::IA32_APIC_BASE);
-        assert!(!apic_base_raw.get_bit(10), "x2APIC is enabled");
-        assert!(apic_base_raw.get_bit(11), "APIC is disabled");
-        let apic_base = apic_base_raw & !0xfff;
-
-        npt.split_2mb(apic_base);
+        npt.split_apic_page();
 
         Self {
             npt: RwLock::new(npt),
