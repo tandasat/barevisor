@@ -15,8 +15,16 @@ use super::{amd::Amd, intel::Intel};
 
 /// The entry point of the hypervisor.
 pub(crate) fn main(registers: &Registers) -> ! {
+    // The processor runs on the setup for the host until launching the guest.
+    // For example, if specified, the IDT may be that of the host, which only
+    // panics on any exception and interrupt.
+    //
+    // Even if the existing IDT remains to be used (eg, the Windows driver setup),
+    // interrupts should be disabled to ensure that the system registers do not
+    // change while copying them one by one to the guest initial state.
     unsafe { x86::irq::disable() };
 
+    // Start the host on the current processor.
     if x86::cpuid::CpuId::new().get_vendor_info().unwrap().as_str() == "GenuineIntel" {
         virtualize_core::<Intel>(registers)
     } else {
@@ -38,9 +46,9 @@ fn virtualize_core<Arch: Architecture>(registers: &Registers) -> ! {
     guest.activate();
     guest.initialize(registers);
 
-    // Then, run the guest until events that the host needs to handle occurs.
     log::info!("Starting the guest");
     loop {
+        // Then, run the guest until events that the host needs to handle occurs.
         match guest.run() {
             VmExitReason::Cpuid(info) => handle_cpuid(guest, &info),
             VmExitReason::Rdmsr(info) => handle_rdmsr(guest, &info),
@@ -122,7 +130,7 @@ pub(crate) trait Extension: Default {
 }
 
 pub(crate) trait Guest {
-    fn new(id: u8) -> Self;
+    fn new(id: usize) -> Self;
     fn activate(&mut self);
     fn initialize(&mut self, registers: &Registers);
     fn run(&mut self) -> VmExitReason;

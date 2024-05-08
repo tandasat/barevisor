@@ -1,4 +1,4 @@
-use core::sync::atomic::{AtomicU8, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 use alloc::collections::BTreeMap;
 use spin::RwLock;
@@ -6,9 +6,9 @@ use spin::RwLock;
 use crate::hypervisor::platform_ops;
 
 type ApicId = u8;
-type ProcessorId = u8;
+type ProcessorId = usize;
 pub(crate) static APIC_ID_MAP: RwLock<BTreeMap<ApicId, ProcessorId>> = RwLock::new(BTreeMap::new());
-pub(crate) static PROCESSOR_COUNT: AtomicU8 = AtomicU8::new(0);
+pub(crate) static PROCESSOR_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Gets an APIC ID.
 pub(crate) fn get() -> ApicId {

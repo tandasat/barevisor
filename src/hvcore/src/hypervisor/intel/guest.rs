@@ -35,7 +35,7 @@ pub(crate) struct VmxGuest {
 }
 
 impl Guest for VmxGuest {
-    fn new(id: u8) -> Self {
+    fn new(id: usize) -> Self {
         let _ = SHARED_GUEST_DATA.call_once(|| {
             let mut epts = zeroed_box::<Epts>();
             epts.build_identify();
@@ -48,7 +48,7 @@ impl Guest for VmxGuest {
 
         Self {
             registers: Registers::default(),
-            id: id as usize,
+            id,
             vmcs: Vmcs::new(),
         }
     }

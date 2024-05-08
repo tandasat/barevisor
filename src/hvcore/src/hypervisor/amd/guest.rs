@@ -41,11 +41,11 @@ pub(crate) struct SvmGuest {
 }
 
 impl Guest for SvmGuest {
-    fn new(id: u8) -> Self {
+    fn new(id: usize) -> Self {
         let shared_guest = SHARED_GUEST_DATA.call_once(SharedGuestData::new);
 
         let mut vm = Self {
-            id: id as usize,
+            id,
             vmcb: Vmcb::default(),
             vmcb_pa: 0,
             host_vmcb: Vmcb::default(),
@@ -291,7 +291,7 @@ impl SvmGuest {
     }
 
     fn handle_nested_page_fault(&mut self) {
-        if self.id as u8 == apic_id::PROCESSOR_COUNT.load(Ordering::Relaxed) - 1 {
+        if self.id == apic_id::PROCESSOR_COUNT.load(Ordering::Relaxed) - 1 {
             log::debug!("Stopping APIC write interception");
             self.intercept_apic_write(false);
         }
@@ -388,7 +388,7 @@ impl SvmGuest {
         // Collect necessary bits to emulate, that is, vector and destination.
         let vector = value.get_bits(0..=7) as u8;
         let apic_id = icr_high_value.get_bits(24..=31) as u8;
-        let processor_id = apic_id::processor_id_from(apic_id).unwrap() as usize;
+        let processor_id = apic_id::processor_id_from(apic_id).unwrap();
         log::debug!("SIPI to {apic_id} with vector {vector:#x?}");
         assert!(vector != GuestActivityState::WaitForSipi as u8);
 
