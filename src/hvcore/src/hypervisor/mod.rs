@@ -4,7 +4,7 @@ mod apic_id;
 pub mod gdt_tss;
 mod host;
 mod intel;
-pub mod interrupt_handler;
+pub mod interrupt_handlers;
 pub mod paging_structures;
 pub mod panic;
 pub mod platform_ops;
@@ -21,7 +21,7 @@ use x86::cpuid::cpuid;
 
 use crate::{hypervisor::registers::Registers, GdtTss, PagingStructures};
 
-use self::interrupt_handler::InterruptDescriptorTable;
+use self::interrupt_handlers::InterruptDescriptorTable;
 
 /// Hyperjacks the current system by virtualizing all logical processors on this
 /// system.
