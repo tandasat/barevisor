@@ -1,12 +1,12 @@
-;// The module containing the `capture_registers` function.
+# The module containing the `capture_registers` function.
 
-;// Captures current register values.
-;//
-;// extern "C" fn capture_registers(registers: &mut GuestRegisters);
+# Captures current register values.
+#
+# extern "C" fn capture_registers(registers: &mut GuestRegisters);
 .align 16
 .global capture_registers
 capture_registers:
-    ;// Capture general purpose and volatile XMM registers.
+    # Capture general purpose and volatile XMM registers.
     mov     [rcx + registers_rax], rax
     mov     [rcx + registers_rbx], rbx
     mov     [rcx + registers_rcx], rcx
@@ -29,17 +29,17 @@ capture_registers:
     movaps  xmmword ptr [rcx + registers_xmm4], xmm4
     movaps  xmmword ptr [rcx + registers_xmm5], xmm5
 
-    ;// Capture RFLAGS.
+    # Capture RFLAGS.
     pushfq
     pop     rax
     mov     [rcx + registers_rflags], rax
 
-    ;// Capture RSP _before_ calling to this function.
+    # Capture RSP _before_ calling to this function.
     mov     rax, rsp
     add     rax, 8
     mov     [rcx + registers_rsp], rax
 
-    ;// Capture the return address from the stack.
+    # Capture the return address from the stack.
     mov     rax, [rsp]
     mov     [rcx + registers_rip], rax
 

@@ -1,33 +1,33 @@
-;// The module containing the `run_vmx_guest` function.
+# The module containing the `run_vmx_guest` function.
 
-;// Runs the guest until VM-exit occurs.
-;//
-;// This function works as follows:
-;// 1. saves host register values to stack.
-;// 2. loads guest register values from `GuestRegisters`.
-;// 3. executes the VMLAUNCH or VMRESUME instruction that
-;//     1. saves host register values to the VMCS.
-;//     2. loads guest register values from the VMCS.
-;//     3. starts running code in VMX non-root operation until VM-exit.
-;// 4. on VM-exit, the processor
-;//     1. saves guest register values to the VMCS.
-;//     2. loads host register values from the VMCS. Some registers are reset to
-;//        hard-coded values. For example, interrupts are always disabled.
-;//     3. updates VM-exit information fields in VMCS to record causes of VM-exit.
-;//     4. starts running code in the VMX root operation.
-;// 5. saves guest register values to `GuestRegisters`.
-;// 6. loads host register values from stack.
-;//
-;// On VM-exit, the processor comes back to this function (at "VmExit") because
-;// the host RIP is configured so.
-;//
-;// extern "C" fn run_vmx_guest(registers: &mut GuestRegisters) -> u64;
+# Runs the guest until VM-exit occurs.
+#
+# This function works as follows:
+# 1. saves host register values to stack.
+# 2. loads guest register values from `GuestRegisters`.
+# 3. executes the VMLAUNCH or VMRESUME instruction that
+#     1. saves host register values to the VMCS.
+#     2. loads guest register values from the VMCS.
+#     3. starts running code in VMX non-root operation until VM-exit.
+# 4. on VM-exit, the processor
+#     1. saves guest register values to the VMCS.
+#     2. loads host register values from the VMCS. Some registers are reset to
+#        hard-coded values. For example, interrupts are always disabled.
+#     3. updates VM-exit information fields in VMCS to record causes of VM-exit.
+#     4. starts running code in the VMX root operation.
+# 5. saves guest register values to `GuestRegisters`.
+# 6. loads host register values from stack.
+#
+# On VM-exit, the processor comes back to this function (at "VmExit") because
+# the host RIP is configured so.
+#
+# extern "C" fn run_vmx_guest(registers: &mut GuestRegisters) -> u64;
 .align 16
 .global run_vmx_guest
 run_vmx_guest:
     xchg    bx, bx
 
-    ;// Save current (host) general purpose registers onto stack.
+    # Save current (host) general purpose registers onto stack.
     push    rax
     push    rcx
     push    rdx
@@ -44,7 +44,7 @@ run_vmx_guest:
     push    r14
     push    r15
 
-    ;// Save current (host) XMM registers onto stack too.
+    # Save current (host) XMM registers onto stack too.
     sub     rsp, 0x60
     movaps  xmmword ptr [rsp], xmm0
     movaps  xmmword ptr [rsp + 0x10], xmm1
@@ -53,12 +53,12 @@ run_vmx_guest:
     movaps  xmmword ptr [rsp + 0x40], xmm4
     movaps  xmmword ptr [rsp + 0x50], xmm5
 
-    ;// Copy `registers` for use. Then, save it at the top of stack so that after
-    ;// VM-exit, we can find it.
-    mov     r15, rcx    ;// r15 <= `registers`
-    push    rcx         ;// [rsp] <= `registers` (#1)
+    # Copy `registers` for use. Then, save it at the top of stack so that after
+    # VM-exit, we can find it.
+    mov     r15, rcx    # r15 <= `registers`
+    push    rcx         # [rsp] <= `registers` (#1)
 
-    ;// Restore guest general purpose and XMM registers from `registers` and try VMRESUME.
+    # Restore guest general purpose and XMM registers from `registers` and try VMRESUME.
     movaps  xmm0, [r15 + registers_xmm0]
     movaps  xmm1, [r15 + registers_xmm1]
     movaps  xmm2, [r15 + registers_xmm2]
@@ -82,43 +82,43 @@ run_vmx_guest:
     mov     r15, [r15 + registers_r15]
     vmresume
 
-    ;// VMRESUME failed. Save flags on stack as next VMREAD will overwrite it.
+    # VMRESUME failed. Save flags on stack as next VMREAD will overwrite it.
     pushf
 
-    ;// If the failure is due to "VMRESUME with non-launched VMCS" (5), continue
-    ;// and perform VMLAUNCH instead. It occurs on the first time.
-    mov     r15, 0x4400 ;// VM-instruction error
+    # If the failure is due to "VMRESUME with non-launched VMCS" (5), continue
+    # and perform VMLAUNCH instead. It occurs on the first time.
+    mov     r15, 0x4400 # VM-instruction error
     vmread  r15, r15
     cmp     r15, 5
     jz      .Launch
-    popf                ;// Restore flags from stack
+    popf                # Restore flags from stack
     jmp     .VmEntryFailure
 
 .Launch:
-    pop     r15         ;// Discard flags from stack
-    ;// The VM has never launched with the current VMCS. Configure the host RSP
-    ;// and RIP first. Then, restore the rest of guest general purpose registers
-    ;// and run the guest until VM-exit occurs.
+    pop     r15         # Discard flags from stack
+    # The VM has never launched with the current VMCS. Configure the host RSP
+    # and RIP first. Then, restore the rest of guest general purpose registers
+    # and run the guest until VM-exit occurs.
     xchg    bx, bx
-    mov     r15, 0x6C14 ;// Host RSP
+    mov     r15, 0x6C14 # Host RSP
     vmwrite r15, rsp
     lea     r14, [rip + .VmExit]
-    mov     r15, 0x6C16 ;// Host RIP
+    mov     r15, 0x6C16 # Host RIP
     vmwrite r15, r14
-    mov     r15, [rsp]  ;// r15 <= `registers`
+    mov     r15, [rsp]  # r15 <= `registers`
     mov     r14, [r15 + registers_r14]
     mov     r15, [r15 + registers_r15]
     vmlaunch
 
 .VmEntryFailure:
-    ;// VMLAUNCH or VMRESUME failed. If it were successful, VM-exit should have
-    ;// led to "VmExit", not here.
+    # VMLAUNCH or VMRESUME failed. If it were successful, VM-exit should have
+    # led to "VmExit", not here.
     jmp     .Exit
 
 .VmExit:
-    ;// VM-exit occurred. Save current (guest) general purpose and XMM registers.
+    # VM-exit occurred. Save current (guest) general purpose and XMM registers.
     xchg    bx, bx
-    xchg    r15, [rsp]  ;// r15 <= `registers` and [rsp] <= guest r15
+    xchg    r15, [rsp]  # r15 <= `registers` and [rsp] <= guest r15
     mov     [r15 + registers_rax], rax
     mov     [r15 + registers_rbx], rbx
     mov     [r15 + registers_rcx], rcx
@@ -133,7 +133,7 @@ run_vmx_guest:
     mov     [r15 + registers_r12], r12
     mov     [r15 + registers_r13], r13
     mov     [r15 + registers_r14], r14
-    mov     rax, [rsp]  ;// rax <= guest R15
+    mov     rax, [rsp]  # rax <= guest R15
     mov     [r15 + registers_r15], rax
     movaps  [r15 + registers_xmm0], xmm0
     movaps  [r15 + registers_xmm1], xmm1
@@ -143,7 +143,7 @@ run_vmx_guest:
     movaps  [r15 + registers_xmm5], xmm5
 
 .Exit:
-    ;// Discard the stack value pushed at #1.
+    # Discard the stack value pushed at #1.
     pop     rax
 
     movaps  xmm5, xmmword ptr [rsp + 0x50]
@@ -154,7 +154,7 @@ run_vmx_guest:
     movaps  xmm0, xmmword ptr [rsp]
     add     rsp, 0x60
 
-    ;// Restore host general purpose registers from stack.
+    # Restore host general purpose registers from stack.
     pop     r15
     pop     r14
     pop     r13
@@ -171,7 +171,7 @@ run_vmx_guest:
     pop     rcx
     pop     rax
 
-    ;// Return the rflags value.
+    # Return the rflags value.
     pushfq
     pop     rax
     ret

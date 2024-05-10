@@ -1,4 +1,4 @@
-;// Offsets to each field in the GuestRegisters struct.
+# Offsets to each field in the GuestRegisters struct.
 .set registers_rax, 0x0
 .set registers_rbx, 0x8
 .set registers_rcx, 0x10

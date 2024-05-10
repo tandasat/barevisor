@@ -1,4 +1,4 @@
-;// The module containing the `run_svm_guest` function.
+# The module containing the `run_svm_guest` function.
 
 
 .align 16
@@ -8,40 +8,40 @@ asm_vmsave:
     vmsave  rax
     ret
 
-;// Runs the guest until #VMEXIT occurs.
-;//
-;// This function works as follows:
-;// 1. saves host general purpose register values to stack.
-;// 2. loads guest general purpose register values from `GuestRegisters`.
-;// 3. executes the VMRUN instruction that
-;//     1. saves host register values to the host state area, as specified by
-;//        the VM_HSAVE_PA MSR.
-;//     2. loads guest register values from the VMCB.
-;//     3. starts running code in guest-mode until #VMEXIT.
-;// 4. on #VMEXIT, the processor
-;//     1. saves guest register values to the VMCB.
-;//     2. loads host register values from the host state area.
-;//        Some registers are reset to hard-coded values. For example, interrupts
-;//        are always disabled.
-;//     3. updates VMCB's EXITCODE field with the reason of #VMEXIT.
-;//     4. starts running code in host-mode.
-;// 5. saves guest general purpose register values to `GuestRegisters`.
-;// 6. loads host general purpose register values from stack.
-;//
-;// Note that state switch implemented here is not complete, and some register
-;// values are "leaked" to the other side, for example, XMM registers, and those
-;// that are managed with VMSAVE and VMLOAD instructions.
-;//
-;// See: 15.5 VMRUN Instruction
-;//      15.6 #VMEXIT
-;//
-;// extern "C" fn run_svm_guest(registers: &mut GuestRegisters, vmcb_pa: u64);
+# Runs the guest until #VMEXIT occurs.
+#
+# This function works as follows:
+# 1. saves host general purpose register values to stack.
+# 2. loads guest general purpose register values from `GuestRegisters`.
+# 3. executes the VMRUN instruction that
+#     1. saves host register values to the host state area, as specified by
+#        the VM_HSAVE_PA MSR.
+#     2. loads guest register values from the VMCB.
+#     3. starts running code in guest-mode until #VMEXIT.
+# 4. on #VMEXIT, the processor
+#     1. saves guest register values to the VMCB.
+#     2. loads host register values from the host state area.
+#        Some registers are reset to hard-coded values. For example, interrupts
+#        are always disabled.
+#     3. updates VMCB's EXITCODE field with the reason of #VMEXIT.
+#     4. starts running code in host-mode.
+# 5. saves guest general purpose register values to `GuestRegisters`.
+# 6. loads host general purpose register values from stack.
+#
+# Note that state switch implemented here is not complete, and some register
+# values are "leaked" to the other side, for example, XMM registers, and those
+# that are managed with VMSAVE and VMLOAD instructions.
+#
+# See: 15.5 VMRUN Instruction
+#      15.6 #VMEXIT
+#
+# extern "C" fn run_svm_guest(registers: &mut GuestRegisters, vmcb_pa: u64);
 .align 16
 .global run_svm_guest
 run_svm_guest:
     xchg    bx, bx
 
-    ;// Save current (host) general purpose registers onto stack.
+    # Save current (host) general purpose registers onto stack.
     push    rax
     push    rcx
     push    rdx
@@ -58,7 +58,7 @@ run_svm_guest:
     push    r14
     push    r15
 
-    ;// Save current (host) XMM registers onto stack too.
+    # Save current (host) XMM registers onto stack too.
     sub     rsp, 0x60
     movaps  xmmword ptr [rsp], xmm0
     movaps  xmmword ptr [rsp + 0x10], xmm1
@@ -67,13 +67,13 @@ run_svm_guest:
     movaps  xmmword ptr [rsp + 0x40], xmm4
     movaps  xmmword ptr [rsp + 0x50], xmm5
 
-    ;// Copy `registers` and `vmcb_pa` for use. Then, save
-    ;// `registers` at the top of stack so that after #VMEXIT, we can find it.
-    mov     r15, rcx    ;// r15 <= `registers`
-    mov     rax, rdx    ;// rax <= `vmcb_pa`
-    push    rcx         ;// [rsp] <= `registers` (#1)
+    # Copy `registers` and `vmcb_pa` for use. Then, save
+    # `registers` at the top of stack so that after #VMEXIT, we can find it.
+    mov     r15, rcx    # r15 <= `registers`
+    mov     rax, rdx    # rax <= `vmcb_pa`
+    push    rcx         # [rsp] <= `registers` (#1)
 
-    ;// Restore guest general purpose and XMM registers from `registers` and try VMRESUME.
+    # Restore guest general purpose and XMM registers from `registers` and try VMRESUME.
     movaps  xmm0, [r15 + registers_xmm0]
     movaps  xmm1, [r15 + registers_xmm1]
     movaps  xmm2, [r15 + registers_xmm2]
@@ -96,14 +96,14 @@ run_svm_guest:
     mov     r14, [r15 + registers_r14]
     mov     r15, [r15 + registers_r15]
 
-    ;// Run the guest until #VMEXIT occurs.
-    vmload  rax     ;// Load registers from VMCB
+    # Run the guest until #VMEXIT occurs.
+    vmload  rax     # Load registers from VMCB
     vmrun   rax
-    vmsave  rax     ;// Save guest registers to VMCB
+    vmsave  rax     # Save guest registers to VMCB
 
-    ;// #VMEXIT occurred. Save current (guest) general purpose and XMM registers.
+    # #VMEXIT occurred. Save current (guest) general purpose and XMM registers.
     xchg    bx, bx
-    xchg    r15, [rsp]  ;// r15 <= `registers` and [rsp] <= guest r15
+    xchg    r15, [rsp]  # r15 <= `registers` and [rsp] <= guest r15
     mov     [r15 + registers_rbx], rbx
     mov     [r15 + registers_rcx], rcx
     mov     [r15 + registers_rdx], rdx
@@ -117,7 +117,7 @@ run_svm_guest:
     mov     [r15 + registers_r12], r12
     mov     [r15 + registers_r13], r13
     mov     [r15 + registers_r14], r14
-    mov     rax, [rsp]  ;// rax <= guest R15
+    mov     rax, [rsp]  # rax <= guest R15
     mov     [r15 + registers_r15], rax
     movaps  [r15 + registers_xmm0], xmm0
     movaps  [r15 + registers_xmm1], xmm1
@@ -126,7 +126,7 @@ run_svm_guest:
     movaps  [r15 + registers_xmm4], xmm4
     movaps  [r15 + registers_xmm5], xmm5
 
-    ;// Discard the stack value pushed at #1.
+    # Discard the stack value pushed at #1.
     pop     rax
 
     movaps  xmm5, xmmword ptr [rsp + 0x50]
@@ -137,7 +137,7 @@ run_svm_guest:
     movaps  xmm0, xmmword ptr [rsp]
     add     rsp, 0x60
 
-    ;// Restore host general purpose registers from stack.
+    # Restore host general purpose registers from stack.
     pop     r15
     pop     r14
     pop     r13
@@ -154,8 +154,8 @@ run_svm_guest:
     pop     rcx
     pop     rax
 
-    ;// From the host VMCS, restore some of register values that are not restored
-    ;// with #VMEXIT.
+    # From the host VMCS, restore some of register values that are not restored
+    # with #VMEXIT.
     mov     rax, r8
     vmload  rax
 
