@@ -52,7 +52,7 @@ impl Guest for SvmGuest {
             host_vmcb: Vmcb::default(),
             host_vmcb_pa: 0,
             host_state: HostStateArea::default(),
-            activity_state: &shared_guest.activity_states[id as usize],
+            activity_state: &shared_guest.activity_states[id],
         };
 
         vm.vmcb_pa = platform_ops::get().pa(addr_of!(*vm.vmcb.as_ref()) as _);
