@@ -29,8 +29,8 @@ use crate::hypervisor::{
 use super::epts::Epts;
 
 pub(crate) struct VmxGuest {
-    registers: Registers,
     id: usize,
+    registers: Registers,
     vmcs: Vmcs,
 }
 
@@ -47,14 +47,13 @@ impl Guest for VmxGuest {
         });
 
         Self {
-            registers: Registers::default(),
             id,
+            registers: Registers::default(),
             vmcs: Vmcs::new(),
         }
     }
 
     fn activate(&mut self) {
-        vmclear(&mut self.vmcs);
         vmptrld(&mut self.vmcs);
     }
 
@@ -713,6 +712,7 @@ impl Vmcs {
     fn new() -> Self {
         let mut vmcs = zeroed_box::<VmcsRaw>();
         vmcs.revision_id = rdmsr(x86::msr::IA32_VMX_BASIC) as _;
+        vmclear(&mut vmcs);
         Self { ptr: vmcs }
     }
 }

@@ -30,13 +30,13 @@ use super::npts::NestedPageTables;
 #[derivative(Debug)]
 pub(crate) struct SvmGuest {
     id: usize,
+    registers: Registers,
     vmcb: Vmcb,
     vmcb_pa: u64,
     host_vmcb: Vmcb,
     host_vmcb_pa: u64,
     #[derivative(Debug = "ignore")]
     host_state: HostStateArea,
-    registers: Registers,
     activity_state: &'static AtomicU8,
 }
 
@@ -46,12 +46,12 @@ impl Guest for SvmGuest {
 
         let mut vm = Self {
             id,
+            registers: Registers::default(),
             vmcb: Vmcb::default(),
             vmcb_pa: 0,
             host_vmcb: Vmcb::default(),
             host_vmcb_pa: 0,
             host_state: HostStateArea::default(),
-            registers: Registers::default(),
             activity_state: &shared_guest.activity_states[id as usize],
         };
 
@@ -126,13 +126,13 @@ impl Guest for SvmGuest {
                 self.handle_security_exception();
                 VmExitReason::InitSignal
             }
+            VMEXIT_CPUID => VmExitReason::Cpuid(InstructionInfo {
+                next_rip: self.vmcb.control_area.nrip,
+            }),
             VMEXIT_NPF => {
                 self.handle_nested_page_fault();
                 VmExitReason::NestedPageFault
             }
-            VMEXIT_CPUID => VmExitReason::Cpuid(InstructionInfo {
-                next_rip: self.vmcb.control_area.nrip,
-            }),
             _ => {
                 log::error!("{:#x?}", self.vmcb);
                 panic!(

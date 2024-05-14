@@ -15,16 +15,22 @@ pub(crate) struct Vmx {
 
 impl Extension for Vmx {
     fn enable(&mut self) {
+        // The current CR0, CR4 and IA32_FEATURE_CONTROL MSR may not satisfy the
+        // requirements for enabling VMX. Update them as required,
         cr0_write(get_adjusted_cr0(cr0()));
         cr4_write(get_adjusted_cr4(cr4()));
-        Self::adjust_feature_control_msr();
+        Self::update_feature_control_msr();
+
+        // Then, execute the VMXON instruction. Successful execution of the
+        // instruction puts the processor into the operation mode called "VMX
+        // root operation" allowing the use of the other VMX instructions.
         vmxon(&mut self.vmxon_region);
     }
 }
 
 impl Vmx {
     /// Updates an MSR to satisfy the requirement for entering VMX operation.
-    fn adjust_feature_control_msr() {
+    fn update_feature_control_msr() {
         const IA32_FEATURE_CONTROL_LOCK_BIT_FLAG: u64 = 1 << 0;
         const IA32_FEATURE_CONTROL_ENABLE_VMX_OUTSIDE_SMX_FLAG: u64 = 1 << 2;
 
@@ -44,6 +50,7 @@ impl Vmx {
     }
 }
 
+/// Logical representation of a VMCS.
 #[derive(derive_deref::Deref, derive_deref::DerefMut)]
 struct Vmxon {
     ptr: Box<VmxonRaw>,
@@ -51,8 +58,20 @@ struct Vmxon {
 
 impl Default for Vmxon {
     fn default() -> Self {
+        // The VMXON instruction requires 4KB of a region called "VMXON region".
+        // This is a per-logical core data structure and only used for the VMXON
+        // instruction.
         let mut vmxon = zeroed_box::<VmxonRaw>();
+
+        // "Before executing VMXON, software should write the VMCS revision identifier
+        //  (see Section 25.2) to the VMXON region."
+        // See: 25.11.5 VMXON Region
+        //
+        // "(...) Software can discover the VMCS revision identifier that a processor
+        //  uses by reading the VMX capability MSR IA32_VMX_BASIC (see Appendix A.1)."
+        // See: 25.2 FORMAT OF THE VMCS REGION"
         vmxon.revision_id = rdmsr(x86::msr::IA32_VMX_BASIC) as _;
+
         Self { ptr: vmxon }
     }
 }
