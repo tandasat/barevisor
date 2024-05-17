@@ -736,8 +736,6 @@ const _: () = assert!(core::mem::size_of::<VmcsRaw>() == BASE_PAGE_SIZE);
 fn vmclear(vmcs_region: &mut VmcsRaw) {
     let va = vmcs_region as *const _;
     let pa = platform_ops::get().pa(va as *const _);
-
-    // Safety: this project runs at CPL0.
     unsafe { x86::bits64::vmx::vmclear(pa).unwrap() };
 }
 
@@ -745,20 +743,16 @@ fn vmclear(vmcs_region: &mut VmcsRaw) {
 fn vmptrld(vmcs_region: &mut VmcsRaw) {
     let va = vmcs_region as *const _;
     let pa = platform_ops::get().pa(va as *const _);
-
-    // Safety: this project runs at CPL0.
     unsafe { x86::bits64::vmx::vmptrld(pa).unwrap() }
 }
 
 /// The wrapper of the VMREAD instruction.
 fn vmread(encoding: u32) -> u64 {
-    // Safety: this project runs at CPL0.
     unsafe { x86::bits64::vmx::vmread(encoding) }.unwrap()
 }
 
 /// The wrapper of the VMREAD instruction. Returns zero on error.
 fn vmread_relaxed(encoding: u32) -> u64 {
-    // Safety: this project runs at CPL0.
     unsafe { x86::bits64::vmx::vmread(encoding) }.unwrap_or(0)
 }
 
@@ -768,7 +762,6 @@ where
     u64: From<T>,
 {
     let value = u64::from(value);
-    // Safety: this project runs at CPL0.
     unsafe { x86::bits64::vmx::vmwrite(encoding, value) }
         .unwrap_or_else(|_| panic!("Could not write {value:x?} to {encoding:x?}"));
 }

@@ -1,3 +1,5 @@
+//! This module implements enablement of Intel VMX.
+
 use alloc::boxed::Box;
 
 use crate::hypervisor::{
@@ -92,7 +94,5 @@ struct VmxonRaw {
 fn vmxon(vmxon_region: &mut VmxonRaw) {
     let va = vmxon_region as *const _;
     let pa = platform_ops::get().pa(va as *const _);
-
-    // Safety: this project runs at CPL0.
     unsafe { x86::bits64::vmx::vmxon(pa).unwrap() };
 }

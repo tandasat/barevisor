@@ -6,6 +6,7 @@
 //! satisfies the preconditions and safe to call them at any context.
 
 use core::arch::asm;
+
 use x86::{
     bits64::rflags::RFlags,
     controlregs::{Cr0, Cr4, Xcr0},
@@ -13,17 +14,13 @@ use x86::{
     segmentation::SegmentSelector,
 };
 
-#[allow(dead_code)]
-
 /// Reads an MSR.
 pub(crate) fn rdmsr(msr: u32) -> u64 {
-    // Safety: this project runs at CPL0.
     unsafe { x86::msr::rdmsr(msr) }
 }
 
 /// Writes a value to an MSR.
 pub(crate) fn wrmsr(msr: u32, value: u64) {
-    // Safety: this project runs at CPL0.
     unsafe { x86::msr::wrmsr(msr, value) };
 }
 
@@ -36,13 +33,11 @@ pub(crate) fn cr0() -> Cr0 {
 
 /// Writes a value to the CR0 register.
 pub(crate) fn cr0_write(val: Cr0) {
-    // Safety: this project runs at CPL0.
     unsafe { x86::controlregs::cr0_write(val) };
 }
 
 /// Reads the CR3 register.
 pub(crate) fn cr3() -> u64 {
-    // Safety: this project runs at CPL0.
     unsafe { x86::controlregs::cr3() }
 }
 
@@ -55,20 +50,17 @@ pub(crate) fn cr4() -> Cr4 {
 
 /// Writes a value to the CR4 register.
 pub(crate) fn cr4_write(val: Cr4) {
-    // Safety: this project runs at CPL0.
     unsafe { x86::controlregs::cr4_write(val) };
 }
 
 /// Write a value to the IDTR register.
 pub(crate) fn lidt(idtr: &DescriptorTablePointer<u64>) {
-    // Safety: this project runs at CPL0.
     unsafe { x86::dtables::lidt(idtr) };
 }
 
 /// Reads the IDTR register.
 pub(crate) fn sidt() -> DescriptorTablePointer<u64> {
     let mut idtr = DescriptorTablePointer::<u64>::default();
-    // Safety: this project runs at CPL0.
     unsafe { x86::dtables::sidt(&mut idtr) };
     idtr
 }
@@ -76,7 +68,6 @@ pub(crate) fn sidt() -> DescriptorTablePointer<u64> {
 /// Reads the GDTR.
 pub(crate) fn sgdt() -> DescriptorTablePointer<u64> {
     let mut gdtr = DescriptorTablePointer::<u64>::default();
-    // Safety: this project runs at CPL0.
     unsafe { x86::dtables::sgdt(&mut gdtr) };
     gdtr
 }
