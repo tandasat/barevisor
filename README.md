@@ -16,7 +16,9 @@ A bare minimum hypervisor on AMD and Intel processors for learners.
 
 ## Motivation
 
-The primary goal of this project is to provide simple code demonstrate how hardware-assisted virtualization technologies on x86 work and can be used to "hyperjack" UEFI and Windows.
+The primary goal of this project is to explore possibilities of writing a hypervisor in stable Rust and designs to abstract differences of AMD-vs-Intel and UEFI-vs-Windows.
+
+As a secondary goal, it aims to be an additional resource for learning how hardware-assisted virtualization technologies on x86 work and can be used to "hyperjack" UEFI and Windows.
 
 
 ## Package organization
