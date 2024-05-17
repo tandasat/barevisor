@@ -73,19 +73,34 @@ impl Epts {
         }
     }
 
+    /// Returns an EPT pointer for this EPT.
     pub(crate) fn eptp(&self) -> EptPointer {
-        let ept_pml4_pa = platform_ops::get().pa(addr_of!(*self) as *const _);
-
         let mut eptp = EptPointer::default();
-        eptp.set_memory_type(MemoryType::WriteBack as _);
-        eptp.set_page_levels_minus_one(3);
+        let ept_pml4_pa = platform_ops::get().pa(addr_of!(*self) as *const _);
         eptp.set_pfn(ept_pml4_pa >> BASE_PAGE_SHIFT);
+
+        // Lower 12-bits of EPTP is made up of flags. We use the write-back memory
+        // type for accessing to any of EPT paging-structures, as it is most
+        // efficient.
+        // See: 29.3.7.1 Memory Type Used for Accessing EPT Paging Structures
+        eptp.set_memory_type(MemoryType::WriteBack as _);
+
+        // "This value is 1 less than the EPT page-walk length."
+        // "The EPT translation mechanism (...) uses a page-walk length of 4".
+        // See: Table 25-9. Format of Extended-Page-Table Pointer
+        // See: 29.3.2 EPT Translation Mechanism
+        eptp.set_page_levels_minus_one(3);
         eptp
     }
 }
 
 bitfield::bitfield! {
-    /// Table 25-9. Format of Extended-Page-Table Pointer
+    /// A 64-bit VMCS field value to teach the processor how to walk EPTs.
+    // It is equivalent to the CR3 in the normal
+    // paging structure walk, in a sense that EPTP points to the base address
+    // of the structures to walk, ie, EPTs.
+    // See: 25.6.11 Extended-Page-Table Pointer (EPTP)
+    // See: Table 25-9. Format of Extended-Page-Table Pointer
     #[derive(Clone, Copy, Default)]
     pub struct EptPointer(u64);
     impl Debug;

@@ -28,6 +28,7 @@ use crate::hypervisor::{
 
 use super::epts::Epts;
 
+/// Representation of a guest.
 pub(crate) struct VmxGuest {
     id: usize,
     registers: Registers,
@@ -46,6 +47,21 @@ impl Guest for VmxGuest {
             }
         });
 
+        // The processor is now in VMX root operation. This means that the processor
+        // can execute other VMX instructions and almost ready for configuring a VMCS
+        // with the VMREAD and VMWRITE instructions. Before doing so, we need to make
+        // a VMCS "clear", "active" and "current". Otherwise, the VMREAD and VMWRITE
+        // instructions do not know which VMCS to operate on and fail. For visualization
+        // of VMCS state transitions,
+        // See: Figure 25-1. States of VMCS X
+        //
+        // Firstly, "clear" the VMCS using the VMCLEAR instruction. See `Vmcs::new`.
+        //
+        // "the VMCLEAR instruction initializes any implementation-specific
+        //  information in the VMCS region referenced by its operand. (...),
+        //  software should execute VMCLEAR on a VMCS region before making the
+        //  corresponding VMCS active with VMPTRLD for the first time."
+        // See: 25.11.3 Initializing a VMCS
         Self {
             id,
             registers: Registers::default(),
@@ -54,7 +70,19 @@ impl Guest for VmxGuest {
     }
 
     fn activate(&mut self) {
+        // To make the VMCS "active" and "current" execute the VMPTRLD instruction.
+        // This instruction requires that the revision identifier is initialized,
+        // which was done in `Vmcs::new`.
+        //
+        // "Software should write the VMCS revision identifier to the VMCS region
+        //  before using that region for a VMCS. (...) VMPTRLD fails if (...) a
+        //  VMCS region whose VMCS revision identifier differs from that used by
+        //  the processor."
+        // See: 25.2 FORMAT OF THE VMCS REGION
         vmptrld(&mut self.vmcs);
+
+        // The processor now have an associated VMCS (called a current VMCS) and
+        // able to execute the VMREAD and VMWRITE instructions. Let us program it.
     }
 
     fn initialize(&mut self, registers: &Registers) {
@@ -82,11 +110,11 @@ impl Guest for VmxGuest {
         if let Err(err) = vmx_succeed(RFlags::from_raw(flags)) {
             panic!("{err}");
         }
+        log::trace!("Exited the guest");
+
         self.registers.rip = vmread(vmcs::guest::RIP);
         self.registers.rsp = vmread(vmcs::guest::RSP);
         self.registers.rflags = vmread(vmcs::guest::RFLAGS);
-
-        log::trace!("Exited the guest");
 
         // Return VM-exit reason.
         match vmread(vmcs::ro::EXIT_REASON) as u16 {
@@ -126,7 +154,10 @@ impl Guest for VmxGuest {
 }
 
 impl VmxGuest {
+    /// Initializes the control fields of the VMCS.
     fn initialize_control(&self) {
+        // - Set HOST_ADDRESS_SPACE_SIZE to run the host on the 64bit mode.
+        // - Set IA32E_MODE_GUEST to run the guest on the 64bit mode.
         vmwrite(
             vmcs::control::VMEXIT_CONTROLS,
             Self::adjust_vmx_control(
@@ -141,10 +172,31 @@ impl VmxGuest {
                 vmcs::control::EntryControls::IA32E_MODE_GUEST.bits() as _,
             ),
         );
+
+        // Nothing to enable in the PINBASED_EXEC_CONTROLS.
         vmwrite(
             vmcs::control::PINBASED_EXEC_CONTROLS,
             Self::adjust_vmx_control(VmxControl::PinBased, 0),
         );
+
+        // The processor-based VM-execution controls govern the handling of
+        // synchronous events, mainly those caused by the execution of specific
+        // instructions.
+        //
+        // - MSR bitmaps are used; this is not to cause VM-exit as much as possible.
+        //   We are setting the MSR bitmaps that are all cleared. This prevents
+        //   VM-exits from occurring when 0x0 - 0x1fff and 0xc0000000 - 0xc0001fff
+        //   are accessed. VM-exit still occurs if outside the range is accessed,
+        //   and it is not possible to prevent this.
+        //
+        // - The secondary processor-based controls are used; this is to:
+        //   - Enable EPT and unrestricted guest to allow a real-mode guest, which
+        //     is required for the UEFI version where a guest runs in real-mode
+        //     after INIT-SIPI-SIPI.
+        //   - Let the guest executes RDTSCP, INVPCID and the XSAVE/XRSTORS family
+        //     instructions. Those instructions are used in Windows 10+. If those
+        //     are not set, attempt to execute them causes #UD, which results in
+        //     a bug check.
         vmwrite(
             vmcs::control::PRIMARY_PROCBASED_EXEC_CONTROLS,
             Self::adjust_vmx_control(
@@ -168,12 +220,15 @@ impl VmxGuest {
         );
 
         let shared_guest = SHARED_GUEST_DATA.get().unwrap();
-        let va = shared_guest.msr_bitmaps.as_ref() as *const _;
-        let pa = platform_ops::get().pa(va as *const _);
-        vmwrite(vmcs::control::MSR_BITMAPS_ADDR_FULL, pa);
+        let msr_bitmaps_va = shared_guest.msr_bitmaps.as_ref() as *const _;
+        let msr_bitmaps_pa = platform_ops::get().pa(msr_bitmaps_va as *const _);
+        vmwrite(vmcs::control::MSR_BITMAPS_ADDR_FULL, msr_bitmaps_pa);
         vmwrite(vmcs::control::EPTP_FULL, shared_guest.epts.eptp().0);
     }
 
+    /// Initializes the guest-state fields of the VMCS.
+    // It does so by copying the current register values with the assumption that
+    // those have not changed since `Registers::capture_current` is called.
     fn initialize_guest(&self) {
         let idtr = sidt();
         let gdtr = sgdt();
@@ -256,6 +311,10 @@ impl VmxGuest {
             rdmsr(x86::msr::IA32_SYSENTER_ESP),
         );
 
+        // "If the "VMCS shadowing" VM-execution control is 1, (...). Otherwise,
+        //  software should set this field to FFFFFFFF_FFFFFFFFH to avoid VM-entry
+        //  failures."
+        // See: 25.4.2 Guest Non-Register State
         vmwrite(vmcs::guest::LINK_PTR_FULL, u64::MAX);
 
         vmwrite(vmcs::guest::CR0, cr0().bits() as u64);
@@ -269,18 +328,19 @@ impl VmxGuest {
         vmwrite(vmcs::guest::RFLAGS, self.registers.rflags);
     }
 
+    /// Initializes the host-state fields of the VMCS.
     fn initialize_host(&self) {
         let shared_host = SHARED_HOST_DATA.get().unwrap();
 
+        // Use a custom CR3 if specified. Otherwise, use the current.
         let cr3 = if let Some(host_pt) = &shared_host.pt {
-            log::debug!("Switching the host CR3");
             addr_of!(*host_pt.as_ref()) as u64
         } else {
             cr3()
         };
 
+        // Use a custom GDT, TR, and TSS if specified. Otherwise, use the current.
         let (gdt_base, tr, tss_base) = if let Some(host_gdt_and_tss) = &shared_host.gdts {
-            log::debug!("Switching the host GDTR");
             let gdt_base = addr_of!(host_gdt_and_tss[self.id].gdt[0]) as u64;
             let tr = host_gdt_and_tss[self.id].tr.unwrap();
             let tss = host_gdt_and_tss[self.id].tss.as_ref().unwrap();
@@ -293,21 +353,25 @@ impl VmxGuest {
             (gdtr.base as u64, tr, tss_base)
         };
 
+        // Use a custom IDT if specified. Otherwise, use the current.
         let idt_base = if let Some(host_idt) = &shared_host.idt {
-            log::debug!("Switching the host IDTR");
             host_idt.idtr().base as u64
         } else {
             let idtr = sidt();
             idtr.base as u64
         };
 
-        vmwrite(vmcs::host::ES_SELECTOR, es().bits() & !0x7);
-        vmwrite(vmcs::host::CS_SELECTOR, cs().bits() & !0x7);
-        vmwrite(vmcs::host::SS_SELECTOR, ss().bits() & !0x7);
-        vmwrite(vmcs::host::DS_SELECTOR, ds().bits() & !0x7);
-        vmwrite(vmcs::host::FS_SELECTOR, fs().bits() & !0x7);
-        vmwrite(vmcs::host::GS_SELECTOR, gs().bits() & !0x7);
-        vmwrite(vmcs::host::TR_SELECTOR, tr.bits() & !0x7);
+        // The lower 3 bits of the selectors must be zero.
+        // "In the selector field for each of CS, SS, DS, ES, FS, GS, and TR,
+        //  the RPL (bits 1:0) and the TI flag (bit 2) must be 0."
+        // See: 27.2.3 Checks on Host Segment and Descriptor-Table Registers
+        vmwrite(vmcs::host::ES_SELECTOR, es().bits() & !0b111);
+        vmwrite(vmcs::host::CS_SELECTOR, cs().bits() & !0b111);
+        vmwrite(vmcs::host::SS_SELECTOR, ss().bits() & !0b111);
+        vmwrite(vmcs::host::DS_SELECTOR, ds().bits() & !0b111);
+        vmwrite(vmcs::host::FS_SELECTOR, fs().bits() & !0b111);
+        vmwrite(vmcs::host::GS_SELECTOR, gs().bits() & !0b111);
+        vmwrite(vmcs::host::TR_SELECTOR, tr.bits() & !0b111);
 
         vmwrite(vmcs::host::CR0, cr0().bits() as u64);
         vmwrite(vmcs::host::CR3, cr3);
@@ -320,8 +384,8 @@ impl VmxGuest {
         vmwrite(vmcs::host::IDTR_BASE, idt_base);
     }
 
-    /// Returns an adjust value for the control field according to the
-    /// capability MSR.
+    /// Returns the VM control value that is adjusted in consideration with the
+    /// VMX capability MSR.
     fn adjust_vmx_control(control: VmxControl, requested_value: u64) -> u64 {
         const IA32_VMX_BASIC_VMX_CONTROLS_FLAG: u64 = 1 << 55;
 
@@ -395,29 +459,42 @@ impl VmxGuest {
         u64::from(effective_value)
     }
 
+    /// Returns access rights in the format VMCS expects.
     fn access_rights(access_rights: u32) -> u32 {
         const VMX_SEGMENT_ACCESS_RIGHTS_UNUSABLE_FLAG: u32 = 1 << 16;
 
+        // "In general, a segment register is unusable if it has been loaded with a
+        //  null selector."
+        // See: 25.4.1 Guest Register State
         if access_rights == 0 {
             return VMX_SEGMENT_ACCESS_RIGHTS_UNUSABLE_FLAG;
         }
 
+        // Convert the native access right to the format for VMX. Those two formats
+        // are almost identical except that first 8 bits of the native format does
+        // not exist in the VMX format, and that few fields are undefined in the
+        // native format but reserved to be zero in the VMX format.
         (access_rights >> 8) & 0b1111_0000_1111_1111
     }
 
+    /// Handles VM-exit due to the INIT signal.
+    // This function initializes the processor to the state after INIT as described
+    // in the Intel SDM.
+    // See: Table 9-1. IA-32 and Intel 64 Processor States Following Power-up,
+    //      Reset, or INIT
     fn handle_init_signal(&mut self) {
         self.registers.rflags = RFlags::FLAGS_A1.bits();
         vmwrite(vmcs::guest::RFLAGS, self.registers.rflags);
+
         self.registers.rip = 0xfff0;
         vmwrite(vmcs::guest::RIP, self.registers.rip);
-        vmwrite(vmcs::control::CR0_READ_SHADOW, 0u64);
+
         unsafe { cr2_write(0) };
         vmwrite(vmcs::guest::CR3, 0u64);
+        vmwrite(vmcs::control::CR0_READ_SHADOW, 0u64);
         vmwrite(vmcs::control::CR4_READ_SHADOW, 0u64);
 
-        //
         // Actual guest CR0 and CR4 must fulfill requirements for VMX. Apply those.
-        //
         vmwrite(
             vmcs::guest::CR0,
             get_adjusted_guest_cr0(Cr0::CR0_EXTENSION_TYPE).bits() as u64,
@@ -475,7 +552,7 @@ impl VmxGuest {
         self.registers.rdi = 0x0;
         self.registers.rbp = 0x0;
 
-        self.registers.rsp = 0x0u64;
+        self.registers.rsp = 0x0;
         vmwrite(vmcs::guest::RSP, self.registers.rsp);
 
         vmwrite(vmcs::guest::GDTR_BASE, 0u64);
@@ -505,42 +582,63 @@ impl VmxGuest {
         };
         vmwrite(vmcs::guest::DR7, 0x400u64);
 
-        self.registers.r8 = 0u64;
-        self.registers.r9 = 0u64;
-        self.registers.r10 = 0u64;
-        self.registers.r11 = 0u64;
-        self.registers.r12 = 0u64;
-        self.registers.r13 = 0u64;
-        self.registers.r14 = 0u64;
-        self.registers.r15 = 0u64;
+        self.registers.r8 = 0;
+        self.registers.r9 = 0;
+        self.registers.r10 = 0;
+        self.registers.r11 = 0;
+        self.registers.r12 = 0;
+        self.registers.r13 = 0;
+        self.registers.r14 = 0;
+        self.registers.r15 = 0;
 
         vmwrite(vmcs::guest::IA32_EFER_FULL, 0u64);
         vmwrite(vmcs::guest::FS_BASE, 0u64);
         vmwrite(vmcs::guest::GS_BASE, 0u64);
 
-        //
-        // Set IA32E_MODE_GUEST to 0. from_bits_truncate will fail
-        //
         let mut vmentry_controls = vmread(vmcs::control::VMENTRY_CONTROLS);
-        vmentry_controls &= !(vmcs::control::EntryControls::IA32E_MODE_GUEST.bits() as u64); // Clear the IA32E_MODE_GUEST bit
+        vmentry_controls &= !(vmcs::control::EntryControls::IA32E_MODE_GUEST.bits() as u64);
         vmwrite(vmcs::control::VMENTRY_CONTROLS, vmentry_controls);
 
-        // invalidate TLB?
-
+        // "All the processors on the system bus (...) execute the multiple processor
+        //  (MP) initialization protocol. ... The application (non-BSP) processors
+        //  (APs) go into a Wait For Startup IPI (SIPI) state while the BSP is executing
+        //  initialization code."
+        // See: 10.1 INITIALIZATION OVERVIEW
+        //
+        // "Upon receiving an INIT ..., the processor responds by beginning the
+        //  initialization process of the processor core and the local APIC. The state
+        //  of the local APIC following an INIT reset is the same as it is after a
+        //  power-up or hardware reset ... . This state is also referred to at the
+        //  "wait-for-SIPI" state."
+        // See: 10.4.7.3 Local APIC State After an INIT Reset ("Wait-for-SIPI" State)
         vmwrite(
             vmcs::guest::ACTIVITY_STATE,
             GuestActivityState::WaitForSipi as u32,
         );
     }
 
+    /// Handles VM-exit due to the Startup-IPI (SIPI) signal.
     fn handle_sipi_signal(&mut self) {
+        // "For a start-up IPI (SIPI), the exit qualification contains the SIPI
+        //  vector information in bits 7:0. Bits 63:8 of the exit qualification are
+        //  cleared to 0."
+        // See: 27.2.1 Basic VM-Exit Information
         let vector = vmread(vmcs::ro::EXIT_QUALIFICATION);
 
+        // "At the end of the boot-strap procedure, the BSP sets ... broadcasts a
+        //  SIPI message to all the APs in the system. Here, the SIPI message contains
+        //  a vector to the BIOS AP initialization code (at 000VV000H, where VV is the
+        //  vector contained in the SIPI message)."
+        // See: 8.4.3 MP Initialization Protocol Algorithm for MP Systems
         vmwrite(vmcs::guest::CS_SELECTOR, vector << 8);
         vmwrite(vmcs::guest::CS_BASE, vector << 12);
         self.registers.rip = 0;
         vmwrite(vmcs::guest::RIP, self.registers.rip);
 
+        // Done. Note that the 2nd SIPI will be ignored if that occurs after this.
+        // "If a logical processor is not in the wait-for-SIPI activity state when a
+        //  SIPI arrives, no VM exit occurs and the SIPI is discarded"
+        // See: 25.2 OTHER CAUSES OF VM EXITS
         vmwrite(
             vmcs::guest::ACTIVITY_STATE,
             GuestActivityState::Active as u32,
@@ -592,6 +690,8 @@ enum GuestActivityState {
     WaitForSipi = 3,
 }
 
+/// Returns the CR0 value after the FIXED0 and FIXED1 MSR values are applied
+/// for the guest.
 fn get_adjusted_guest_cr0(cr0: Cr0) -> Cr0 {
     // Adjust the CR0 register according to the fixed0 and fixed1 MSR values.
     let mut new_cr0 = get_adjusted_cr0(cr0);
@@ -611,11 +711,13 @@ fn get_adjusted_guest_cr0(cr0: Cr0) -> Cr0 {
     new_cr0
 }
 
+/// Returns the CR4 value after the FIXED0 and FIXED1 MSR values are applied
+/// for the guest.
 fn get_adjusted_guest_cr4(cr4: Cr4) -> Cr4 {
     get_adjusted_cr4(cr4)
 }
 
-/// Updates the CR0 to satisfy the requirement for entering VMX operation.
+/// Returns the CR0 value after the FIXED0 and FIXED1 MSR values are applied.
 pub(crate) fn get_adjusted_cr0(cr0: Cr0) -> Cr0 {
     // In order to enter VMX operation, some bits in CR0 (and CR4) have to be
     // set or cleared as indicated by the FIXED0 and FIXED1 MSRs. The rule is
@@ -637,7 +739,7 @@ pub(crate) fn get_adjusted_cr0(cr0: Cr0) -> Cr0 {
     (cr0 & fixed1) | fixed0
 }
 
-/// Updates the CR4 to satisfy the requirement for entering VMX operation.
+/// Returns the CR4 value after the FIXED0 and FIXED1 MSR values are applied.
 pub(crate) fn get_adjusted_cr4(cr4: Cr4) -> Cr4 {
     let fixed0 = unsafe { Cr4::from_bits_unchecked(rdmsr(x86::msr::IA32_VMX_CR4_FIXED0) as _) };
     let fixed1 = unsafe { Cr4::from_bits_unchecked(rdmsr(x86::msr::IA32_VMX_CR4_FIXED1) as _) };

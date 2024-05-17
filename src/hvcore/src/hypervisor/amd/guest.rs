@@ -1,5 +1,5 @@
 use core::{
-    arch::global_asm,
+    arch::{asm, global_asm},
     ptr::addr_of,
     sync::atomic::{AtomicU8, Ordering},
 };
@@ -99,14 +99,14 @@ impl Guest for SvmGuest {
         // Run the guest until the #VMEXIT occurs.
         unsafe { run_svm_guest(&mut self.registers, self.vmcb_pa, self.host_vmcb_pa) };
 
+        log::trace!("Exited the guest");
+
         // #VMEXIT occurred. Copy the guest register values from VMCB so that
         // `self.registers` is complete and up to date.
         self.registers.rax = self.vmcb.state_save_area.rax;
         self.registers.rip = self.vmcb.state_save_area.rip;
         self.registers.rsp = self.vmcb.state_save_area.rsp;
         self.registers.rflags = self.vmcb.state_save_area.rflags;
-
-        log::trace!("Exited the guest");
 
         // We might have requested flushing TLB. Clear the request.
         self.vmcb.control_area.tlb_control = TlbControl::DoNotFlush as _;
@@ -484,18 +484,15 @@ impl SvmGuest {
         let shared_host = SHARED_HOST_DATA.get().unwrap();
 
         if let Some(host_pt) = &shared_host.pt {
-            log::debug!("Switching the host CR3");
             let pml4 = addr_of!(*host_pt.as_ref());
             unsafe { cr3_write(platform_ops::get().pa(pml4 as _)) };
         }
 
         if let Some(host_gdt_and_tss) = &shared_host.gdts {
-            log::debug!("Switching the host GDTR");
             host_gdt_and_tss[self.id].apply().unwrap();
         }
 
         if let Some(host_idt) = &shared_host.idt {
-            log::debug!("Switching the host IDTR");
             lidt(&host_idt.idtr());
         }
 
