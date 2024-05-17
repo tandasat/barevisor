@@ -1,13 +1,5 @@
 # The module containing the `run_svm_guest` function.
 
-
-.align 16
-.global asm_vmsave
-asm_vmsave:
-    mov     rax, rcx
-    vmsave  rax
-    ret
-
 # Runs the guest until #VMEXIT occurs.
 #
 # This function works as follows:

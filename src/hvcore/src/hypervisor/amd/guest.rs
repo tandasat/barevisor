@@ -477,7 +477,7 @@ impl SvmGuest {
 
         // VMSAVE copies some of the current register values into VMCB. Take
         // advantage of it.
-        unsafe { asm_vmsave(self.vmcb_pa) };
+        vmsave(self.vmcb_pa);
     }
 
     fn initialize_host(&mut self) {
@@ -501,7 +501,7 @@ impl SvmGuest {
 
         // Save some of the current register values as host state. They are
         // restored shortly after #VMEXIT.
-        unsafe { asm_vmsave(self.host_vmcb_pa) };
+        vmsave(self.host_vmcb_pa);
     }
 }
 
@@ -721,12 +721,20 @@ impl Default for HostStateAreaRaw {
 extern "C" {
     /// Runs the guest until #VMEXIT occurs.
     fn run_svm_guest(registers: &mut Registers, vmcb_pa: u64, host_vmcb_pa: u64);
-
-    /// Saves registers to VMCS
-    fn asm_vmsave(vmcb_pa: u64);
 }
 global_asm!(include_str!("../capture_registers.inc"));
 global_asm!(include_str!("run_guest.S"));
+
+/// Saves registers to VMCS
+fn vmsave(vmcb_pa: u64) {
+    unsafe {
+        asm!(
+            "mov rax, {}",
+            "vmsave rax",
+            in(reg) vmcb_pa, options(nostack, preserves_flags),
+        )
+    };
+}
 
 /// Returns the access rights of the given segment for SVM.
 fn get_segment_access_right(table_base: u64, selector: u16) -> u16 {
