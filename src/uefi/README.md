@@ -16,7 +16,7 @@ Barevisor as a UEFI driver for Intel and AMD processors.
 
 ## Why UEFI driver-based hypervisor
 
-Barevisor can be compiled into both UEFI driver and Windows kernel driver. Those who are interested in virtualizing UEFI, boot loaders and early OS initialization phases should study UEFI driver-based hypervisors. It is also suitable for having a better picture of how Intel VT-x and AMD SVM, and OS agnostic designs.
+Barevisor can be compiled into both the UEFI driver and Windows kernel driver. Those interested in virtualizing UEFI, boot loaders, and early OS initialization phases should study UEFI driver-based hypervisors. It is also suitable for having a better picture of how Intel VT-x and AMD SVM, as well as OS-agnostic designs.
 
 
 ## Building
@@ -40,7 +40,7 @@ Barevisor can be compiled into both UEFI driver and Windows kernel driver. Those
 
 ## Testing with Bochs
 
-Barevisor can be partially tested with [Bochs](https://github.com/bochs-emu/Bochs), a cross-platform open-source x86_64 PC emulator. It is **extremely** helpful in an early-phase of hypervisor development as it can be used to debug the types of errors that are difficult to diagnose on VMware. Failure of the VMX instructions is the primal example.
+Barevisor can be partially tested with [Bochs](https://github.com/bochs-emu/Bochs), a cross-platform open-source x86_64 PC emulator. It is **extremely** helpful in the early phase of hypervisor development as it can be used to debug the types of errors that are difficult to diagnose on VMware. Failure of the VMX instructions is the primal example.
 
 
 ### Setting up a VM
