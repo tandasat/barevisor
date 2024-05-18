@@ -9,7 +9,7 @@ mod ops;
 use alloc::boxed::Box;
 use wdk_sys::{
     ntddk::ExAllocatePool2, DRIVER_OBJECT, NTSTATUS, PCUNICODE_STRING, POOL_FLAG_NON_PAGED,
-    STATUS_SUCCESS,
+    STATUS_INSUFFICIENT_RESOURCES, STATUS_SUCCESS,
 };
 
 #[link_section = "INIT"]
@@ -21,6 +21,7 @@ extern "C" fn driver_entry(
     const POOL_TAG: u32 = u32::from_ne_bytes(*b"Bare");
     eprintln!("Loading win_hv.sys");
 
+    // Initialize the global allocator with pre-allocated buffer.
     let ptr = unsafe {
         ExAllocatePool2(
             POOL_FLAG_NON_PAGED,
@@ -28,8 +29,18 @@ extern "C" fn driver_entry(
             POOL_TAG,
         )
     };
+    if ptr.is_null() {
+        eprintln!("Memory allocation failed");
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
     hv::allocator::init(ptr.cast::<u8>());
+
+    // Register the platform specific API.
     hv::platform_ops::init(Box::new(ops::WindowsOps));
+
+    // Virtualize the system. No `SharedHostData` is given, meaning that host's
+    // IDT, GDT, TSS and page tables are all that of the system process (PID=4).
+    // This makes the host debuggable with Windbg but also breakable from CPL0.
     hv::virtualize_system(hv::SharedHostData::default());
 
     eprintln!("Loaded win_hv.sys");

@@ -1,4 +1,5 @@
-/// Contains Windows kernel driver-based implementation of [`hv::PlatformOps`].
+//! Contains Windows kernel driver-based implementation of [`hv::PlatformOps`].
+
 use hv::platform_ops::PlatformOps;
 use wdk_sys::{
     ntddk::{
@@ -11,14 +12,14 @@ use wdk_sys::{
 pub(crate) struct WindowsOps;
 
 impl PlatformOps for WindowsOps {
-    fn processor_count(&self) -> u32 {
-        unsafe { KeQueryActiveProcessorCountEx(u16::try_from(ALL_PROCESSOR_GROUPS).unwrap()) }
-    }
-
     fn run_on_all_processors(&self, callback: fn()) {
+        fn processor_count() -> u32 {
+            unsafe { KeQueryActiveProcessorCountEx(u16::try_from(ALL_PROCESSOR_GROUPS).unwrap()) }
+        }
+
         PAGED_CODE!();
 
-        for index in 0..self.processor_count() {
+        for index in 0..processor_count() {
             let mut processor_number = PROCESSOR_NUMBER::default();
             let status = unsafe { KeGetProcessorNumberFromIndex(index, &mut processor_number) };
             assert!(NT_SUCCESS(status));
