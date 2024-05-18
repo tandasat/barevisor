@@ -77,12 +77,7 @@ asm_interrupt_handler_common:
     add     rsp, 0x10
     iretq
 
-.align 16
-.global asm_interrupt_handler_common_end
-asm_interrupt_handler_common_end:
-.fill 0x80, 1, 0
-
-INTERRUPT_HANDLER   # Interrupt 0-7
+INTERRUPT_HANDLER                   # Interrupt 0-7
 INTERRUPT_HANDLER
 INTERRUPT_HANDLER
 INTERRUPT_HANDLER
@@ -97,13 +92,13 @@ INTERRUPT_HANDLER_WITH_ERROR_CODE
 INTERRUPT_HANDLER_WITH_ERROR_CODE
 INTERRUPT_HANDLER_WITH_ERROR_CODE
 INTERRUPT_HANDLER_WITH_ERROR_CODE
-INTERRUPT_HANDLER   # Interrupt 15-16
+INTERRUPT_HANDLER                   # Interrupt 15-16
 INTERRUPT_HANDLER
 INTERRUPT_HANDLER_WITH_ERROR_CODE   # Interrupt 17
-INTERRUPT_HANDLER   # Interrupt 18-20
+INTERRUPT_HANDLER                   # Interrupt 18-20
 INTERRUPT_HANDLER
 INTERRUPT_HANDLER
 INTERRUPT_HANDLER_WITH_ERROR_CODE   # Interrupt 21
 .rept   234
-INTERRUPT_HANDLER
+INTERRUPT_HANDLER                   # Interrupt 22-255
 .endr
