@@ -86,6 +86,9 @@ pub(crate) fn build_identity_internal(ps: &mut PagingStructuresRaw, npt: bool) {
         pdpte.set_user(user);
         pdpte.set_pfn(ops.pa(addr_of!(ps.pd[i]) as _) >> BASE_PAGE_SHIFT);
         for pde in &mut ps.pd[i].0.entries {
+            // The first 2MB is mapped with 4KB pages if it is not for NPT. This
+            // is to make the zero page non-present and cause #PF in case of null
+            // pointer access. Helps debugging. All other pages are 2MB mapped.
             if pa == 0 && !npt {
                 pde.set_present(true);
                 pde.set_writable(true);
