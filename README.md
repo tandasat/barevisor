@@ -39,7 +39,8 @@ You can build `src/windows/` only on Windows, while `src/uefi/` is cross-platfor
 | Ubuntu    | ❌            | ✅          |
 | macOS     | ❌            | ✅          |
 
-For details of each workspace and package, and build instructions, see respective README.md files.
+See [windows/README.md](src/windows/README.md) and [uefi/README.md](src/uefi/README.md)
+for detailed build and test instructions.
 
 
 ## Acknowledgement
