@@ -6,11 +6,11 @@ use core::{
 
 use uefi::table::{Boot, SystemTable};
 
-static SYSTEM_TABLE: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
-
 pub(crate) fn init(system_table: &SystemTable<Boot>) {
     SYSTEM_TABLE.store(system_table.as_ptr().cast_mut(), Ordering::Release);
 }
+
+static SYSTEM_TABLE: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
 
 fn system_table() -> SystemTable<Boot> {
     let ptr = SYSTEM_TABLE.load(Ordering::Acquire);
