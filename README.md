@@ -45,7 +45,7 @@ for detailed build and test instructions.
 
 ## Acknowledgement
 
-[memN0ps](https://github.com/memN0ps)'s Rust hypervisor projects substantially inspired and helped me get started with this work. I encourage you to study those projects as additional resources.
+[memN0ps](https://github.com/memN0ps)'s Rust hypervisor projects substantially inspired and helped me get started with this work. I encourage you to study those projects as additional resources. Some code in the Barevisor project is heavily influenced by and may even be copied from their work even though it is not mentioned at each place.
 
 
 ## Non-goals
