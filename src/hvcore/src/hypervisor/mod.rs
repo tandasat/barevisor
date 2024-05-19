@@ -82,6 +82,7 @@ const OUR_HV_VENDOR_NAME_EBX: u32 = u32::from_ne_bytes(*b"Bare");
 const OUR_HV_VENDOR_NAME_ECX: u32 = u32::from_ne_bytes(*b"viso");
 const OUR_HV_VENDOR_NAME_EDX: u32 = u32::from_ne_bytes(*b"r!  ");
 
+/// Tests whether the current processor is already virtualized by our hypervisor.
 fn is_our_hypervisor_present() -> bool {
     let regs = cpuid!(HV_CPUID_VENDOR_AND_MAX_FUNCTIONS);
     (regs.ebx == OUR_HV_VENDOR_NAME_EBX)

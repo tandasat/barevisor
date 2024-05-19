@@ -1,10 +1,15 @@
+//! This module implements initialization of the host IDT and host interrupt handlers.
+
 use core::arch::global_asm;
 
 use alloc::boxed::Box;
 use x86::{bits64::rflags::RFlags, dtables::DescriptorTablePointer, segmentation::SegmentSelector};
 
+use crate::hypervisor::x86_instructions::cr2;
+
 use super::support::zeroed_box;
 
+/// Logical representation of the IDT.
 #[derive(Debug, derive_deref::Deref, derive_deref::DerefMut)]
 pub struct InterruptDescriptorTable {
     ptr: Box<InterruptDescriptorTableRaw>,
@@ -12,6 +17,8 @@ pub struct InterruptDescriptorTable {
 
 impl InterruptDescriptorTable {
     pub fn new(cs: SegmentSelector) -> Self {
+        // Build the IDT. Each interrupt handler (ie. asm_interrupt_handlerN) is
+        // 16 byte long and can be located from asm_interrupt_handler0.
         let mut idt = zeroed_box::<InterruptDescriptorTableRaw>();
         for i in 0..idt.0.len() {
             let handler = asm_interrupt_handler0 as usize + 0x10 * i;
@@ -64,6 +71,7 @@ impl InterruptDescriptorTableEntry {
     }
 }
 
+/// The layout of the stack passed to [`handle_host_exception`].
 #[derive(Debug)]
 #[repr(C)]
 struct HostExceptionStack {
@@ -91,6 +99,7 @@ struct HostExceptionStack {
     ss: u64,               // Hardware saved
 }
 
+/// The host interrupt handler.
 #[no_mangle]
 extern "C" fn handle_host_exception(stack: *mut HostExceptionStack) {
     assert!(!stack.is_null());
@@ -98,7 +107,7 @@ extern "C" fn handle_host_exception(stack: *mut HostExceptionStack) {
     panic!(
         "Exception {} occurred in host: {stack:#x?}, cr2: {:#x?}",
         stack.exception_number,
-        unsafe { x86::controlregs::cr2() },
+        cr2(),
     );
 }
 

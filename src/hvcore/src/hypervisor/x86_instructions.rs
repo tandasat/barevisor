@@ -1,9 +1,4 @@
 //! The module containing wrapper functions for x86 instructions.
-//!
-//! Those instructions provided by the `x86` crate as `unsafe` functions, due to
-//! the fact that those require certain preconditions. The wrappers provided by
-//! this module encapsulate those `unsafe`-ness since this project always
-//! satisfies the preconditions and safe to call them at any context.
 
 use core::arch::asm;
 
@@ -24,41 +19,51 @@ pub(crate) fn wrmsr(msr: u32, value: u64) {
     unsafe { x86::msr::wrmsr(msr, value) };
 }
 
-/// Reads the CR0 register.
+/// Reads the CR0.
 pub(crate) fn cr0() -> Cr0 {
     let value: usize;
     unsafe { asm!("mov {}, cr0", out(reg) value, options(nomem, nostack, preserves_flags)) };
     unsafe { Cr0::from_bits_unchecked(value) }
 }
 
-/// Writes a value to the CR0 register.
+/// Writes a value to the CR0.
 pub(crate) fn cr0_write(val: Cr0) {
     unsafe { x86::controlregs::cr0_write(val) };
 }
 
-/// Reads the CR3 register.
+/// Reads the CR2.
+pub(crate) fn cr2() -> u64 {
+    unsafe { x86::controlregs::cr2() as _ }
+}
+
+/// Write a value to CR2.
+pub(crate) fn write_cr2(val: u64) {
+    unsafe { x86::controlregs::cr2_write(val) };
+}
+
+/// Reads the CR3.
 pub(crate) fn cr3() -> u64 {
     unsafe { x86::controlregs::cr3() }
 }
 
-/// Reads the CR4 register.
+/// Reads the CR4.
 pub(crate) fn cr4() -> Cr4 {
     let value: usize;
     unsafe { asm!("mov {}, cr4", out(reg) value, options(nomem, nostack, preserves_flags)) };
     unsafe { Cr4::from_bits_unchecked(value) }
 }
 
-/// Writes a value to the CR4 register.
+/// Writes a value to the CR4.
 pub(crate) fn cr4_write(val: Cr4) {
     unsafe { x86::controlregs::cr4_write(val) };
 }
 
-/// Write a value to the IDTR register.
+/// Write a value to the IDTR.
 pub(crate) fn lidt(idtr: &DescriptorTablePointer<u64>) {
     unsafe { x86::dtables::lidt(idtr) };
 }
 
-/// Reads the IDTR register.
+/// Reads the IDTR.
 pub(crate) fn sidt() -> DescriptorTablePointer<u64> {
     let mut idtr = DescriptorTablePointer::<u64>::default();
     unsafe { x86::dtables::sidt(&mut idtr) };
@@ -72,7 +77,7 @@ pub(crate) fn sgdt() -> DescriptorTablePointer<u64> {
     gdtr
 }
 
-//
+/// LSL-Load Segment Limit
 pub(crate) fn lsl(selector: SegmentSelector) -> u32 {
     let flags: u64;
     let mut limit: u64;
@@ -114,15 +119,18 @@ pub(crate) fn lar(selector: SegmentSelector) -> u32 {
     }
 }
 
+/// Writes a value to XCR.
 pub(crate) fn xsetbv(xcr: u32, val: Xcr0) {
     assert!(xcr == 0);
     unsafe { x86::controlregs::xcr0_write(val) };
 }
 
+/// Reads the TR.
 pub(crate) fn tr() -> SegmentSelector {
     unsafe { x86::task::tr() }
 }
 
+/// Reads the LDTR.
 pub(crate) fn ldtr() -> SegmentSelector {
     unsafe { x86::dtables::ldtr() }
 }

@@ -8,7 +8,7 @@ use alloc::{
 use spin::once::Once;
 use x86::{
     bits64::{paging::BASE_PAGE_SIZE, rflags::RFlags},
-    controlregs::{cr2_write, Cr0, Cr4},
+    controlregs::{Cr0, Cr4},
     debugregs::{dr0_write, dr1_write, dr2_write, dr3_write, dr6_write, Dr6},
     segmentation::{
         cs, ds, es, fs, gs, ss, CodeSegmentType, DataSegmentType, SystemDescriptorTypes64,
@@ -22,7 +22,7 @@ use crate::hypervisor::{
     registers::Registers,
     segment::SegmentDescriptor,
     support::{zeroed_box, Page},
-    x86_instructions::{cr0, cr3, cr4, lar, ldtr, lsl, rdmsr, sgdt, sidt, tr},
+    x86_instructions::{cr0, cr3, cr4, lar, ldtr, lsl, rdmsr, sgdt, sidt, tr, write_cr2},
     SHARED_HOST_DATA,
 };
 
@@ -489,7 +489,7 @@ impl VmxGuest {
         self.registers.rip = 0xfff0;
         vmwrite(vmcs::guest::RIP, self.registers.rip);
 
-        unsafe { cr2_write(0) };
+        write_cr2(0);
         vmwrite(vmcs::guest::CR3, 0u64);
         vmwrite(vmcs::control::CR0_READ_SHADOW, 0u64);
         vmwrite(vmcs::control::CR4_READ_SHADOW, 0u64);
