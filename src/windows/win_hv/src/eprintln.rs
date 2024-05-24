@@ -3,6 +3,7 @@ use core::fmt::Write;
 use spin::Mutex;
 use wdk_sys::{ntddk::DbgPrintEx, DPFLTR_ERROR_LEVEL, _DPFLTR_TYPE::DPFLTR_IHVDRIVER_ID};
 
+/// Debug prints a message to a kernel debugger with a newline.
 #[macro_export]
 macro_rules! eprintln {
     () => {
@@ -14,6 +15,7 @@ macro_rules! eprintln {
     };
 }
 
+/// Debug prints a message to a kernel debugger without a newline.
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {

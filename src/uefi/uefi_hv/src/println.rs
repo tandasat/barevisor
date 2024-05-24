@@ -17,6 +17,7 @@ fn system_table() -> SystemTable<Boot> {
     unsafe { SystemTable::from_ptr(ptr) }.unwrap()
 }
 
+/// Debug prints a message to stdout with a newline.
 #[macro_export]
 macro_rules! println {
     () => {
@@ -28,6 +29,7 @@ macro_rules! println {
     };
 }
 
+/// Debug prints a message to stdout without a newline.
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {
