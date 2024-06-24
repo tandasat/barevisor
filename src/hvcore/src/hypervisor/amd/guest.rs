@@ -703,8 +703,6 @@ impl Default for HostStateArea {
 /// from on #VMEXIT.
 ///
 /// See: 15.30.4 VM_HSAVE_PA MSR (C001_0117h)
-// doc_markdown: clippy confused with "VM_HSAVE_PA"
-#[allow(clippy::doc_markdown)]
 #[repr(C, align(4096))]
 struct HostStateAreaRaw([u8; 0x1000]);
 const _: () = assert!(core::mem::size_of::<HostStateAreaRaw>() == 0x1000);

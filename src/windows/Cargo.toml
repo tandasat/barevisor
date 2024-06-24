@@ -56,6 +56,7 @@ unused_results = "warn"
 pedantic = { level = "warn", priority = -1 }
 cargo = { level = "warn", priority = -1 }
 multiple_crate_versions = "allow"
+doc_markdown = "allow"
 
 # https://doc.rust-lang.org/rustdoc/lints.html
 [workspace.lints.rustdoc]
