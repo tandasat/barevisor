@@ -4,6 +4,7 @@ extern crate alloc;
 
 pub mod hypervisor;
 
+#[cfg(not(test))]
 pub use hypervisor::allocator;
 pub use hypervisor::gdt_tss::GdtTss;
 pub use hypervisor::interrupt_handlers::InterruptDescriptorTable;

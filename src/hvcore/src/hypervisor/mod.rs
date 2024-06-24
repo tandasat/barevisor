@@ -1,3 +1,4 @@
+#[cfg(not(test))]
 pub mod allocator;
 mod amd;
 mod apic_id;
