@@ -66,7 +66,7 @@ This project is optimized for the above-mentioned goals, and thus, features some
 
 Having written hypervisors many times for teaching, it is fair to say that one of the most challenging parts of learning hardware-assisted virtualization technologies is getting started and understanding the foundation. As you get through this phase, learn the building blocks, and be motivated, it is easier to start working on covering the listed missing features as you need.
 
-If you wish to learn more about those missing features, contact me for discussion and references. I offer a [4-day long training course](https://tandasat.github.io/) covering many of those in depth.
+If you wish to learn more about those missing features, ask me questions or for further learning references. I also offer a [4-day long training course](https://tandasat.github.io/) covering many of those in depth.
 
 
 ## Supported hardware models
