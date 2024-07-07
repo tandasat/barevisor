@@ -1,10 +1,10 @@
-# The module containing the `run_vmx_guest` function.
+# The module implements the `run_vmx_guest` function.
 
 # Runs the guest until VM-exit occurs.
 #
 # This function works as follows:
-# 1. saves host register values to stack.
-# 2. loads guest register values from `GuestRegisters`.
+# 1. saves host general purpose and XMM register values to stack.
+# 2. loads guest general purpose and XMM register values from `GuestRegisters`.
 # 3. executes the VMLAUNCH or VMRESUME instruction that
 #     1. saves host register values to the VMCS.
 #     2. loads guest register values from the VMCS.
@@ -15,11 +15,16 @@
 #        hard-coded values. For example, interrupts are always disabled.
 #     3. updates VM-exit information fields in VMCS to record causes of VM-exit.
 #     4. starts running code in the VMX root operation.
-# 5. saves guest register values to `GuestRegisters`.
-# 6. loads host register values from stack.
+# 5. saves guest general purpose and XMM register values to `GuestRegisters`.
+# 6. loads host general purpose and XMM register values from stack.
 #
 # On VM-exit, the processor comes back to this function (at "VmExit") because
 # the host RIP is configured so.
+#
+# Saving XMM registers are only required for the Windows version because the UEFI
+# version is compiled with "-mmx,-sse,+soft-float", preventing the compiler from
+# using those registers. For the Windows version, XMM0-5 needs care as they are
+# volatile.
 #
 # extern "C" fn run_vmx_guest(registers: &mut GuestRegisters) -> u64;
 .align 16
@@ -97,8 +102,7 @@ run_vmx_guest:
 .Launch:
     pop     r15         # Discard flags from stack
     # The VM has never launched with the current VMCS. Configure the host RSP
-    # and RIP first. Then, restore the rest of guest general purpose registers
-    # and run the guest until VM-exit occurs.
+    # and RIP first.
     xchg    bx, bx
     mov     r15, 0x6C14 # Host RSP
     vmwrite r15, rsp

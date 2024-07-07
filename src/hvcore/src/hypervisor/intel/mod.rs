@@ -1,3 +1,7 @@
+//! This module implements Intel VT-x based virtualization. Code comments refer
+//! to Intel® 64 and IA-32 Architectures Software Developer Manuals revision 84 at
+//! <https://intel.com/sdm>.
+
 use super::host::Architecture;
 
 mod epts;

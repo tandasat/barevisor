@@ -1,4 +1,5 @@
-//! Contains Windows kernel driver-based implementation of [`hv::PlatformOps`].
+//! This module implements Windows kernel driver-based implementation of
+//! [`hv::PlatformOps`].
 
 use hv::platform_ops::PlatformOps;
 use wdk_sys::{

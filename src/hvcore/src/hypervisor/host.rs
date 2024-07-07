@@ -17,13 +17,22 @@ use super::{amd::Amd, intel::Intel};
 
 /// The entry point of the hypervisor.
 pub(crate) fn main(registers: &Registers) -> ! {
-    // The processor runs on the setup for the host until launching the guest.
-    // For example, if specified, the IDT may be that of the host, which only
-    // panics on any exception and interrupt.
+    // Disable interrupt for a couple of reasons. (1) to avoid panic due to
+    // interrupt, and (2) to avoid inconsistent guest initial state.
     //
-    // Even if the existing IDT remains to be used (eg, the Windows driver setup),
-    // interrupts should be disabled to ensure that the system registers do not
-    // change while copying them one by one to the guest initial state.
+    // (1): In this path, we will switch to the host IDT if specified. The host
+    // IDT only panics on any interrupt. This is an issue on UEFI where we update
+    // the IDT.
+    // (2): An interrupt may change the system register values before and after,
+    // which could leave the guest initial state inconsistent because we copy the
+    // current system register values one by one for the guest. For example, we
+    // set a SS value as non-zero for the guest, interrupt occurs and SS becomes
+    // zero, then we set SS access rights for the guest based on SS being zero.
+    // That would leave the guest SS and SS access rights inconsistent. This is
+    // an issue on Windows.
+    //
+    // Note that NMI is still possible and can cause the same issue. We just
+    // never observed it causing the described issues.
     unsafe { x86::irq::disable() };
 
     // Start the host on the current processor.
@@ -38,7 +47,7 @@ pub(crate) fn main(registers: &Registers) -> ! {
 fn virtualize_core<Arch: Architecture>(registers: &Registers) -> ! {
     log::info!("Initializing the guest");
 
-    // Enable processor's virtualization features.
+    // Enable processor's virtualization technology.
     let mut vt = Arch::VirtualizationExtension::default();
     vt.enable();
 
@@ -50,9 +59,8 @@ fn virtualize_core<Arch: Architecture>(registers: &Registers) -> ! {
 
     log::info!("Starting the guest");
     loop {
-        // Then, run the guest until events that the host needs to handle occurs.
-        // Some of events are handled within the architecture specific code and
-        // nothing to do here.
+        // Then, run the guest until VM-exit occurs. Some of events are handled
+        // within the architecture specific code and nothing to do here.
         match guest.run() {
             VmExitReason::Cpuid(info) => handle_cpuid(guest, &info),
             VmExitReason::Rdmsr(info) => handle_rdmsr(guest, &info),

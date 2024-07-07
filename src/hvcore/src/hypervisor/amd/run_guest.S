@@ -1,10 +1,10 @@
-# The module containing the `run_svm_guest` function.
+# The module implements the `run_svm_guest` function.
 
 # Runs the guest until #VMEXIT occurs.
 #
 # This function works as follows:
-# 1. saves host general purpose register values to stack.
-# 2. loads guest general purpose register values from `GuestRegisters`.
+# 1. saves host general purpose and XMM register values to stack.
+# 2. loads guest general purpose and XMM register values from `GuestRegisters`.
 # 3. executes the VMRUN instruction that
 #     1. saves host register values to the host state area, as specified by
 #        the VM_HSAVE_PA MSR.
@@ -17,17 +17,15 @@
 #        are always disabled.
 #     3. updates VMCB's EXITCODE field with the reason of #VMEXIT.
 #     4. starts running code in host-mode.
-# 5. saves guest general purpose register values to `GuestRegisters`.
-# 6. loads host general purpose register values from stack.
+# 5. saves guest general purpose and XMM register values to `GuestRegisters`.
+# 6. loads host general purpose and XMM register values from stack.
 #
-# Note that state switch implemented here is not complete, and some register
-# values are "leaked" to the other side, for example, XMM registers, and those
-# that are managed with VMSAVE and VMLOAD instructions.
+# Saving XMM registers are only required for the Windows version because the UEFI
+# version is compiled with "-mmx,-sse,+soft-float", preventing the compiler from
+# using those registers. For the Windows version, XMM0-5 needs care as they are
+# volatile.
 #
-# See: 15.5 VMRUN Instruction
-#      15.6 #VMEXIT
-#
-# extern "C" fn run_svm_guest(registers: &mut GuestRegisters, vmcb_pa: u64);
+# extern "C" fn run_svm_guest(registers: &mut Registers, vmcb_pa: u64, host_vmcb_pa: u64);
 .align 16
 .global run_svm_guest
 run_svm_guest:
@@ -88,10 +86,11 @@ run_svm_guest:
     mov     r14, [r15 + registers_r14]
     mov     r15, [r15 + registers_r15]
 
-    # Run the guest until #VMEXIT occurs.
-    vmload  rax     # Load registers from VMCB
+    # Load additional registers from VMCB, run the guest until #VMEXIT occurs, and
+    # save additional guest registers to VMCB.
+    vmload  rax
     vmrun   rax
-    vmsave  rax     # Save guest registers to VMCB
+    vmsave  rax
 
     # #VMEXIT occurred. Save current (guest) general purpose and XMM registers.
     xchg    bx, bx
@@ -146,9 +145,11 @@ run_svm_guest:
     pop     rcx
     pop     rax
 
-    # From the host VMCS, restore some of register values that are not restored
-    # with #VMEXIT.
-    mov     rax, r8
+    # Some of registers that are not updated by #VMEXIT still have values of the
+    # guest. Update those registers by loading them from the host VMCB. This is
+    # only needed for Windows version to support debugging with Windbg. Our code
+    # does not depend on or change any of those additional registers otherwise.
+    mov     rax, r8     # rax <= host_vmcb_pa
     vmload  rax
 
     ret

@@ -1,4 +1,4 @@
-# The module containing the `capture_registers` function.
+# The module implements the `capture_registers` function.
 
 # Captures current register values.
 #

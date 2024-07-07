@@ -1,3 +1,5 @@
+//! This module implements the platform agnostic hypervisor core.
+
 #[cfg(not(test))]
 pub mod allocator;
 mod amd;

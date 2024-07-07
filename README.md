@@ -62,7 +62,7 @@ This project is optimized for the above-mentioned goals, and thus, features some
 
 - Greater compatibility
 
-    Barevisor's primary functional goal is to hyperjack and boot UEFI and Windows on VMware, and Bochs, and select hardware models. It handles other scenarios only when implementation is simple enough.
+    Barevisor's primary functional goal is to hyperjack and boot UEFI and Windows on VMware, Bochs, and select hardware models. It handles other scenarios only when implementation is simple enough.
 
 Having written hypervisors many times for teaching, it is fair to say that one of the most challenging parts of learning hardware-assisted virtualization technologies is getting started and understanding the foundation. As you get through this phase, learn the building blocks, and be motivated, it is easier to start working on covering the listed missing features as you need.
 

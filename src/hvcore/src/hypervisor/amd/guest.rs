@@ -1,3 +1,5 @@
+//! This module implements a guest management.
+
 use core::{
     arch::{asm, global_asm},
     ptr::addr_of,
@@ -303,6 +305,8 @@ impl SvmGuest {
             )
         };
 
+        // This one is by far the most frequent one. Micro-optimize this path by
+        // checking this pattern first.
         let (value, instr_len) = if instructions
             .starts_with(&[0xc7, 0x80, 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         {

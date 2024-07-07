@@ -1,3 +1,5 @@
+//! This module implements a guest management.
+
 use core::{arch::global_asm, ptr::addr_of};
 
 use alloc::{

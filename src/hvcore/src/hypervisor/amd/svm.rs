@@ -1,3 +1,5 @@
+//! This module implements enablement of AMD SVM.
+
 use crate::hypervisor::{
     host::Extension,
     x86_instructions::{rdmsr, wrmsr},

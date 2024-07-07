@@ -1,4 +1,4 @@
-//! This file implements a global allocator. This allocator takes a pre-allocated
+//! This module implements a global allocator. This allocator takes a pre-allocated
 //! heap and provides allocator for fixed-sized blocks. This allocator eliminates
 //! dependencies onto platform API for memory management at runtime. This is
 //! important as calling platform API from the hypervisor is unsound.

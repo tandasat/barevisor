@@ -1,4 +1,4 @@
-//! The module containing wrapper functions for x86 instructions.
+//! The module implements wrapper functions for x86 instructions.
 
 use core::arch::asm;
 

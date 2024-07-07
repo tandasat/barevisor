@@ -1,3 +1,6 @@
+//! This module implements management of GDT with TSS. TSS is used because Intel
+//! processors require the host GDT to have a valid TSS.
+
 use alloc::{boxed::Box, vec::Vec};
 use x86::{
     bits64::task::TaskStateSegment,
