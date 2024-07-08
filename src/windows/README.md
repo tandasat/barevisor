@@ -14,7 +14,7 @@ Barevisor as a Windows kernel driver for Intel and AMD processors.
 
 ## Why kernel driver-based hypervisor
 
-Barevisor can be compiled into both the UEFI driver and Windows kernel driver. Those familiar with Windows kernel module development should consider the kernel driver-based hypervisor as the most approachable because the hypervisor requires less code and can be debugged with the traditional kernel debugger, Windbg.
+Barevisor can be compiled into both the UEFI driver and Windows kernel driver. Those familiar with Windows kernel module development should consider the kernel driver-based hypervisor as more approachable because the hypervisor requires less code and can be debugged with conventional kernel debuggers like Windbg.
 
 
 ## Building
