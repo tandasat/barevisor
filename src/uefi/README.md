@@ -16,7 +16,7 @@ Barevisor as a UEFI driver for Intel and AMD processors.
 
 ## Why UEFI driver-based hypervisor
 
-Barevisor can be compiled into both the UEFI driver and Windows kernel driver. Those interested in virtualizing UEFI, boot loaders, and early OS initialization phases should study UEFI driver-based hypervisors. It is also suitable for having a better picture of how Intel VT-x and AMD SVM, as well as OS-agnostic designs.
+Barevisor can be compiled into both the UEFI driver and Windows kernel driver. Those interested in virtualizing UEFI, boot loaders, and early OS initialization phases should study UEFI driver-based hypervisors. It is also suitable for having a better picture of how Intel VT-x and AMD SVM work, as well as OS-agnostic designs.
 
 
 ## Building
@@ -40,7 +40,7 @@ Barevisor can be compiled into both the UEFI driver and Windows kernel driver. T
 
 ## Testing with Bochs
 
-Barevisor can be partially tested with [Bochs](https://github.com/bochs-emu/Bochs), a cross-platform open-source x86_64 PC emulator. It is **extremely** helpful in the early phase of hypervisor development as it can be used to debug the types of errors that are difficult to diagnose on VMware. Failure of the VMX instructions is the primal example.
+Barevisor can be partially tested with [Bochs](https://github.com/bochs-emu/Bochs), a cross-platform open-source x86_64 PC emulator. Bochs is **extremely** helpful in the early phase of hypervisor development as it can be used to debug the types of errors that are difficult to diagnose on VMware. Failure of the VMX instructions is the primal example.
 
 
 ### Setting up a VM
@@ -81,7 +81,7 @@ In the `uefi` directory, run either `cargo xtask bochs-amd` or `cargo xtask boch
 
 ![](images/demo_bochs.gif)
 
-Note that the author was unable to test booting an OS in Bochs because unable to install an OS in our Bochs configuration, where UEFI is used instead of traditional BIOS. Please let me know if you made it work.
+You may test code on the UEFI shell but not booting an OS. The author was unable to install an OS on Bochs when UEFI is used instead of traditional BIOS. Please let me know if you made it work.
 
 
 ## Testing with VMware
@@ -132,4 +132,4 @@ You can use VMware Workstation Pro or Fusion Pro to test the hypervisor with a V
     CPU 0: Barevisor!
     ```
 
-You will want to boot an OS after installing Barevisor. Install your choice of a Windows version for testing in the provided VM image.
+You will want to boot an OS after installing Barevisor. Install your choice of a Windows version in the provided VM image  for further testing.
