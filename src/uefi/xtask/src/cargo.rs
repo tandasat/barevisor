@@ -1,6 +1,8 @@
 use std::{env, fs, path::PathBuf, process::Command};
 
-use crate::{output_dir, project_root_dir, DynError};
+use anyhow::{ensure, Result};
+
+use crate::{output_dir, project_root_dir};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Action {
@@ -31,11 +33,7 @@ pub(crate) enum Profile {
     Release,
 }
 
-pub(crate) fn cargo_run(
-    action: Action,
-    package: Package,
-    profile: Profile,
-) -> Result<(), DynError> {
+pub(crate) fn cargo_run(action: Action, package: Package, profile: Profile) -> Result<()> {
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let mut command = Command::new(cargo);
     let _ = command.arg(match action {
@@ -51,9 +49,7 @@ pub(crate) fn cargo_run(
         let _ = command.arg("--release");
     }
     let ok = command.current_dir(project_root_dir()).status()?.success();
-    if !ok {
-        Err("cargo build failed")?;
-    }
+    ensure!(ok, "cargo build failed");
 
     if action == Action::Build && package == Package::Hypervisor {
         let hv_efi = output_dir(release).join(package.name().to_owned() + ".efi");
@@ -67,7 +63,7 @@ fn uefi_target(package: Package) -> bool {
     package == Package::Hypervisor || package == Package::CheckHvVendor
 }
 
-fn transmute_to_runtime_driver(path: PathBuf) -> Result<(), DynError> {
+fn transmute_to_runtime_driver(path: PathBuf) -> Result<()> {
     let mut data = fs::read(path.clone())?;
     data[0xd4] = 0xc; // IMAGE_OPTIONAL_HEADER.Subsystem = IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER
     fs::write(path, data)?;

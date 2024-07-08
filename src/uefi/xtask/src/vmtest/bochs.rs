@@ -1,4 +1,3 @@
-use crate::DynError;
 use std::{
     env, fmt,
     io::{BufRead, BufReader},
@@ -9,6 +8,8 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use anyhow::Result;
+
 use super::{copy_artifacts_to, TestVm, UnixCommand};
 
 pub(crate) struct Bochs {
@@ -16,11 +17,11 @@ pub(crate) struct Bochs {
 }
 
 impl TestVm for Bochs {
-    fn deploy(&self, release: bool) -> Result<(), DynError> {
+    fn deploy(&self, release: bool) -> Result<()> {
         copy_artifacts_to("./tests/samples/bochs_disk.img", release)
     }
 
-    fn run(&self) -> Result<(), DynError> {
+    fn run(&self) -> Result<()> {
         // Start a threads that tries to connect to Bochs in an infinite loop.
         let _unused = thread::spawn(|| loop {
             thread::sleep(Duration::from_secs(1));

@@ -1,23 +1,25 @@
 use std::{path::Path, process::Command};
 
-use crate::{build, cargo::Package, output_dir, project_root_dir, DynError};
+use anyhow::{ensure, Result};
+
+use crate::{build, cargo::Package, output_dir, project_root_dir};
 
 pub(crate) mod bochs;
 pub(crate) mod vmware;
 
 pub(crate) trait TestVm {
-    fn deploy(&self, release: bool) -> Result<(), DynError>;
-    fn run(&self) -> Result<(), DynError>;
+    fn deploy(&self, release: bool) -> Result<()>;
+    fn run(&self) -> Result<()>;
 }
 
-pub(crate) fn run<T: TestVm>(vm: &T, release: bool) -> Result<(), DynError> {
+pub(crate) fn run<T: TestVm>(vm: &T, release: bool) -> Result<()> {
     build(release)?;
     extract_samples()?;
     vm.deploy(release)?;
     vm.run()
 }
 
-fn copy_artifacts_to(image: &str, release: bool) -> Result<(), DynError> {
+fn copy_artifacts_to(image: &str, release: bool) -> Result<()> {
     let files = [
         unix_path(&output_dir(release)) + "/" + Package::Hypervisor.name() + ".efi",
         unix_path(&output_dir(release)) + "/" + Package::CheckHvVendor.name() + ".efi",
@@ -27,22 +29,21 @@ fn copy_artifacts_to(image: &str, release: bool) -> Result<(), DynError> {
         let output = UnixCommand::new("mcopy")
             .args(["-o", "-i", image, file, "::/"])
             .output()?;
-        if !output.status.success() {
-            Err(format!("mcopy failed: {output:#?}"))?;
-        }
+        ensure!(
+            output.status.success(),
+            format!("mcopy failed: {output:#?}")
+        );
     }
     Ok(())
 }
 
-fn extract_samples() -> Result<(), DynError> {
+fn extract_samples() -> Result<()> {
     if !Path::new("./tests/samples/").exists() {
         println!("Extracting sample files...");
         let output = UnixCommand::new("7z")
             .args(["x", "-o./tests/", "./tests/samples.7z"])
             .output()?;
-        if !output.status.success() {
-            Err(format!("7z failed: {output:#?}"))?;
-        }
+        ensure!(output.status.success(), format!("7z failed: {output:#?}"));
     }
     Ok(())
 }

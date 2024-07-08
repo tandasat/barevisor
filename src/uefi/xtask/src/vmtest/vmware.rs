@@ -1,4 +1,3 @@
-use crate::DynError;
 use std::{
     env, fs,
     io::{BufRead, BufReader, Write},
@@ -9,12 +8,14 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use anyhow::{ensure, Result};
+
 use super::{copy_artifacts_to, TestVm, UnixCommand};
 
 pub(crate) struct Vmware;
 
 impl TestVm for Vmware {
-    fn deploy(&self, release: bool) -> Result<(), DynError> {
+    fn deploy(&self, release: bool) -> Result<()> {
         let output = UnixCommand::new("dd")
             .args([
                 "if=/dev/zero",
@@ -23,16 +24,15 @@ impl TestVm for Vmware {
                 "count=2880",
             ])
             .output()?;
-        if !output.status.success() {
-            Err(format!("dd failed: {output:#?}"))?;
-        }
+        ensure!(output.status.success(), format!("dd failed: {output:#?}"));
 
         let output = UnixCommand::new("mformat")
             .args(["-i", "/tmp/vmware_cd.img", "-f", "2880", "::"])
             .output()?;
-        if !output.status.success() {
-            Err(format!("mformat failed: {output:#?}"))?;
-        }
+        ensure!(
+            output.status.success(),
+            format!("mformat failed: {output:#?}")
+        );
 
         copy_artifacts_to("/tmp/vmware_cd.img", release)?;
 
@@ -46,13 +46,15 @@ impl TestVm for Vmware {
                 "/tmp/vmware_cd.img",
             ])
             .output()?;
-        if !output.status.success() {
-            Err(format!("mkisofs failed: {output:#?}"))?;
-        }
+        ensure!(
+            output.status.success(),
+            format!("mkisofs failed: {output:#?}")
+        );
+
         Ok(())
     }
 
-    fn run(&self) -> Result<(), DynError> {
+    fn run(&self) -> Result<()> {
         let vmrun = if cfg!(target_os = "windows") {
             r"C:\Program Files (x86)\VMware\VMware Workstation\vmrun.exe"
         } else if wsl::is_wsl() {
@@ -105,9 +107,7 @@ impl TestVm for Vmware {
             .args(["-T", product_type, "start", vmx_path.as_str()])
             .spawn()?
             .wait()?;
-        if !output.success() {
-            Err(format!("vmrun failed: {output:#?}"))?;
-        }
+        ensure!(output.success(), format!("vmrun failed: {output:#?}"));
 
         // Wait until the serial output file is created. Then, enter loop to read it.
         while !Path::new(log_file).exists() {

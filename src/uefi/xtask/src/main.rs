@@ -4,12 +4,14 @@
 //! cargo xtask
 //! ```
 
-use cargo::{cargo_run, Action, Package, Profile};
-use clap::{Parser, Subcommand};
 use std::{
     env, fs,
     path::{Path, PathBuf},
 };
+
+use anyhow::Result;
+use cargo::{cargo_run, Action, Package, Profile};
+use clap::{Parser, Subcommand};
 use vmtest::{
     bochs::{Bochs, Cpu},
     vmware::Vmware,
@@ -17,8 +19,6 @@ use vmtest::{
 
 mod cargo;
 mod vmtest;
-
-pub(crate) type DynError = Box<dyn std::error::Error>;
 
 #[derive(Parser)]
 #[command(author, about, long_about = None)]
@@ -60,7 +60,7 @@ fn main() {
     }
 }
 
-fn build(release: bool) -> Result<(), DynError> {
+fn build(release: bool) -> Result<()> {
     let profile = if release {
         Profile::Release
     } else {
@@ -70,7 +70,7 @@ fn build(release: bool) -> Result<(), DynError> {
     cargo_run(Action::Build, Package::CheckHvVendor, profile)
 }
 
-fn clippy() -> Result<(), DynError> {
+fn clippy() -> Result<()> {
     cargo_run(Action::Clippy, Package::Hypervisor, Profile::Debug)?;
     cargo_run(Action::Clippy, Package::CheckHvVendor, Profile::Debug)?;
     cargo_run(Action::Clippy, Package::Xtask, Profile::Debug)
