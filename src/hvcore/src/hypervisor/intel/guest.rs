@@ -7,7 +7,7 @@ use alloc::{
     format,
     string::{String, ToString},
 };
-use spin::once::Once;
+use spin::Lazy;
 use x86::{
     bits64::{paging::BASE_PAGE_SIZE, rflags::RFlags},
     controlregs::{Cr0, Cr4},
@@ -39,16 +39,6 @@ pub(crate) struct VmxGuest {
 
 impl Guest for VmxGuest {
     fn new(id: usize) -> Self {
-        let _ = SHARED_GUEST_DATA.call_once(|| {
-            let mut epts = zeroed_box::<Epts>();
-            epts.build_identify();
-
-            SharedGuestData {
-                msr_bitmaps: zeroed_box::<Page>(),
-                epts,
-            }
-        });
-
         // The processor is now in VMX root operation. This means that the processor
         // can execute other VMX instructions and almost ready for configuring a VMCS
         // with the VMREAD and VMWRITE instructions. Before doing so, we need to make
@@ -221,11 +211,10 @@ impl VmxGuest {
             ),
         );
 
-        let shared_guest = SHARED_GUEST_DATA.get().unwrap();
-        let msr_bitmaps_va = shared_guest.msr_bitmaps.as_ref() as *const _;
+        let msr_bitmaps_va = SHARED_GUEST_DATA.msr_bitmaps.as_ref() as *const _;
         let msr_bitmaps_pa = platform_ops::get().pa(msr_bitmaps_va as *const _);
         vmwrite(vmcs::control::MSR_BITMAPS_ADDR_FULL, msr_bitmaps_pa);
-        vmwrite(vmcs::control::EPTP_FULL, shared_guest.epts.eptp().0);
+        vmwrite(vmcs::control::EPTP_FULL, SHARED_GUEST_DATA.epts.eptp().0);
     }
 
     /// Initializes the guest-state fields of the VMCS.
@@ -653,7 +642,15 @@ struct SharedGuestData {
     epts: Box<Epts>,
 }
 
-static SHARED_GUEST_DATA: Once<SharedGuestData> = Once::new();
+static SHARED_GUEST_DATA: Lazy<SharedGuestData> = Lazy::new(|| {
+    let mut epts = zeroed_box::<Epts>();
+    epts.build_identify();
+
+    SharedGuestData {
+        msr_bitmaps: zeroed_box::<Page>(),
+        epts,
+    }
+});
 
 extern "C" {
     /// Runs the guest until VM-exit occurs.

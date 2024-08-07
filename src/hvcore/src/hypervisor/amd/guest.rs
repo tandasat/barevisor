@@ -8,7 +8,7 @@ use core::{
 
 use alloc::boxed::Box;
 use bit_field::BitField;
-use spin::{Once, RwLock};
+use spin::{Lazy, RwLock};
 use x86::{
     bits64::{paging::BASE_PAGE_SHIFT, rflags::RFlags},
     controlregs::cr3_write,
@@ -44,8 +44,6 @@ pub(crate) struct SvmGuest {
 
 impl Guest for SvmGuest {
     fn new(id: usize) -> Self {
-        let shared_guest = SHARED_GUEST_DATA.call_once(SharedGuestData::new);
-
         let mut vm = Self {
             id,
             registers: Registers::default(),
@@ -54,7 +52,7 @@ impl Guest for SvmGuest {
             host_vmcb: Vmcb::default(),
             host_vmcb_pa: 0,
             host_state: HostStateArea::default(),
-            activity_state: &shared_guest.activity_states[id],
+            activity_state: &SHARED_GUEST_DATA.activity_states[id],
         };
 
         vm.vmcb_pa = platform_ops::get().pa(addr_of!(*vm.vmcb.as_ref()) as _);
@@ -280,8 +278,7 @@ impl SvmGuest {
         let apic_base = apic_base_raw & !0xfff;
         let pt_index = apic_base.get_bits(12..=20) as usize; // [20:12]
 
-        let shared_guest = SHARED_GUEST_DATA.get().unwrap();
-        let mut npt = shared_guest.npt.write();
+        let mut npt = SHARED_GUEST_DATA.npt.write();
         let pt = npt.apic_pt();
         pt.0.entries[pt_index].set_writable(!enable);
 
@@ -402,8 +399,7 @@ impl SvmGuest {
         // yet in the WaitForSipi state when #VMEXIT(#SX) has not been processed.
         // It is fine, as SIPI will be sent twice, and almost certain that 2nd
         // SIPI is late enough.
-        let shared_guest = SHARED_GUEST_DATA.get().unwrap();
-        let activity_state = &shared_guest.activity_states[processor_id];
+        let activity_state = &SHARED_GUEST_DATA.activity_states[processor_id];
         let _ = activity_state.compare_exchange(
             GuestActivityState::WaitForSipi as u8,
             vector,
@@ -431,8 +427,7 @@ impl SvmGuest {
         // - Setting the base address of the nested PML4
         //
         // See: 15.25.3 Enabling Nested Paging
-        let shared_guest = SHARED_GUEST_DATA.get().unwrap();
-        let nested_pml4_addr = addr_of!(*shared_guest.npt.read().as_ref());
+        let nested_pml4_addr = SHARED_GUEST_DATA.npt.read().as_ref() as *const _;
         self.vmcb.control_area.np_enable = SVM_NP_ENABLE_NP_ENABLE;
         self.vmcb.control_area.ncr3 = platform_ops::get().pa(nested_pml4_addr as _);
 
@@ -794,7 +789,7 @@ impl SharedGuestData {
     }
 }
 
-static SHARED_GUEST_DATA: Once<SharedGuestData> = Once::new();
+static SHARED_GUEST_DATA: Lazy<SharedGuestData> = Lazy::new(SharedGuestData::new);
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
