@@ -22,4 +22,4 @@ bench = false
 
 [dependencies]
 raw-cpuid = "11.0"
-uefi = { version = "0.28", default-features = false, features = ["global_allocator"] }
+uefi = { version = "0.30", default-features = false, features = ["global_allocator"] }

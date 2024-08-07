@@ -17,7 +17,7 @@ extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use alloc::string::String;
-use uefi::{helpers::system_table, prelude::*, println, proto::pi::mp::MpServices};
+use uefi::{prelude::*, println, proto::pi::mp::MpServices, table::system_table_boot};
 
 static PROCESSOR_COUNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -49,7 +49,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
 }
 
 fn run_on_all_processors(callback: fn()) -> uefi::Result<()> {
-    let st = system_table();
+    let st = system_table_boot().unwrap();
     let bs = st.boot_services();
     let handle = bs.get_handle_for_protocol::<MpServices>()?;
     let mp_services = bs.open_protocol_exclusive::<MpServices>(handle)?;
