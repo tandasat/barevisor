@@ -52,7 +52,7 @@ impl Vmx {
     }
 }
 
-/// Logical representation of a VMCS.
+/// Logical representation of a VMXON region.
 #[derive(derive_deref::Deref, derive_deref::DerefMut)]
 struct Vmxon {
     ptr: Box<VmxonRaw>,
