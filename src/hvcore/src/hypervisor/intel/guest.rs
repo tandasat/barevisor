@@ -11,7 +11,7 @@ use spin::Lazy;
 use x86::{
     bits64::{paging::BASE_PAGE_SIZE, rflags::RFlags},
     controlregs::{Cr0, Cr4},
-    debugregs::{dr0_write, dr1_write, dr2_write, dr3_write, dr6_write, Dr6},
+    debugregs::{dr0_write, dr1_write, dr2_write, dr3_write, dr6_write, dr7_write, Dr6, Dr7},
     segmentation::{
         cs, ds, es, fs, gs, ss, CodeSegmentType, DataSegmentType, SystemDescriptorTypes64,
     },
@@ -286,10 +286,6 @@ impl VmxGuest {
         vmwrite(vmcs::guest::IDTR_LIMIT, idtr.limit);
 
         vmwrite(
-            vmcs::guest::IA32_DEBUGCTL_FULL,
-            rdmsr(x86::msr::IA32_DEBUGCTL),
-        );
-        vmwrite(
             vmcs::guest::IA32_SYSENTER_CS,
             rdmsr(x86::msr::IA32_SYSENTER_CS),
         );
@@ -311,9 +307,6 @@ impl VmxGuest {
         vmwrite(vmcs::guest::CR0, cr0().bits() as u64);
         vmwrite(vmcs::guest::CR3, cr3());
         vmwrite(vmcs::guest::CR4, cr4().bits() as u64);
-
-        vmwrite(vmcs::guest::DR7, unsafe { x86::debugregs::dr7() }.0 as u64);
-
         vmwrite(vmcs::guest::RSP, self.registers.rsp);
         vmwrite(vmcs::guest::RIP, self.registers.rip);
         vmwrite(vmcs::guest::RFLAGS, self.registers.rflags);
@@ -570,8 +563,8 @@ impl VmxGuest {
             dr2_write(0);
             dr3_write(0);
             dr6_write(Dr6::from_bits_unchecked(0xffff0ff0));
+            dr7_write(Dr7(0x400));
         };
-        vmwrite(vmcs::guest::DR7, 0x400u64);
 
         self.registers.r8 = 0;
         self.registers.r9 = 0;
