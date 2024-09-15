@@ -852,11 +852,6 @@ fn vmread(encoding: u32) -> u64 {
     unsafe { x86::bits64::vmx::vmread(encoding) }.unwrap()
 }
 
-/// The wrapper of the VMREAD instruction. Returns zero on error.
-fn vmread_relaxed(encoding: u32) -> u64 {
-    unsafe { x86::bits64::vmx::vmread(encoding) }.unwrap_or(0)
-}
-
 /// The wrapper of the VMWRITE instruction.
 fn vmwrite<T: Into<u64>>(encoding: u32, value: T)
 where
@@ -884,14 +879,45 @@ fn vmx_succeed(flags: RFlags) -> Result<(), String> {
     }
 }
 
+// VMCS encodings not defined in the x86 crate.
+const VMCS_CONTROL_HLAT_PREFIX_SIZE: u32 = 0x6;
+const VMCS_CONTROL_LAST_PID_POINTER_INDEX: u32 = 0x8;
+const VMCS_GUEST_UINV: u32 = 0x814;
+const VMCS_CONTROL_TERTIARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS: u32 = 0x2034;
+const VMCS_CONTROL_ENCLV_EXITING_BITMAP: u32 = 0x2036;
+const VMCS_CONTROL_LOW_PASID_DIRECTORY_ADDRESS: u32 = 0x2038;
+const VMCS_CONTROL_HIGH_PASID_DIRECTORY_ADDRESS: u32 = 0x203A;
+const VMCS_CONTROL_SHARED_EPT_POINTER: u32 = 0x203C;
+const VMCS_CONTROL_PCONFIG_EXITING_BITMAP: u32 = 0x203E;
+const VMCS_CONTROL_HLATP: u32 = 0x2040;
+const VMCS_CONTROL_PID_POINTER_TABLE_ADDRESS: u32 = 0x2042;
+const VMCS_CONTROL_SECONDARY_VM_EXIT_CONTROLS: u32 = 0x2044;
+const VMCS_CONTROL_IA32_SPEC_CTRL_MASK: u32 = 0x204A;
+const VMCS_CONTROL_IA32_SPEC_CTRL_SHADOW: u32 = 0x204C;
+const VMCS_GUEST_IA32_LBR_CTL: u32 = 0x2816;
+const VMCS_GUEST_IA32_PKRS: u32 = 0x2818;
+const VMCS_HOST_IA32_PKRS: u32 = 0x2C06;
+const VMCS_CONTROL_INSTRUCTION_TIMEOUT_CONTROL: u32 = 0x4024;
+const VMCS_GUEST_IA32_S_CET: u32 = 0x6828;
+const VMCS_GUEST_SSP: u32 = 0x682A;
+const VMCS_GUEST_IA32_INTERRUPT_SSP_TABLE_ADDR: u32 = 0x682C;
+const VMCS_HOST_IA32_S_CET: u32 = 0x6C18;
+const VMCS_HOST_SSP: u32 = 0x6C1A;
+const VMCS_HOST_IA32_INTERRUPT_SSP_TABLE_ADDR: u32 = 0x6C1C;
+
 impl core::fmt::Debug for Vmcs {
     #[rustfmt::skip]
     #[allow(clippy::too_many_lines)]
     fn fmt(&self, format: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        /// The wrapper of the VMREAD instruction. Returns zero on error.
+        fn vmread_relaxed(encoding: u32) -> u64 {
+            unsafe { x86::bits64::vmx::vmread(encoding) }.unwrap_or(0)
+        }
+
         // Dump the current VMCS. Not that this is not exhaustive.
         format.debug_struct("Vmcs")
-        .field("Current VMCS", &(self as *const _))
-        .field("Revision ID", &self.revision_id)
+        .field("Current VMCS                                   ", &addr_of!(self.revision_id))
+        .field("Revision ID                                    ", &self.revision_id)
 
         // 16-Bit Guest-State Fields
         .field("Guest ES Selector                              ", &vmread_relaxed(vmcs::guest::ES_SELECTOR))
@@ -904,6 +930,7 @@ impl core::fmt::Debug for Vmcs {
         .field("Guest TR Selector                              ", &vmread_relaxed(vmcs::guest::TR_SELECTOR))
         .field("Guest interrupt status                         ", &vmread_relaxed(vmcs::guest::INTERRUPT_STATUS))
         .field("PML index                                      ", &vmread_relaxed(vmcs::guest::PML_INDEX))
+        .field("Guest UINV                                     ", &vmread_relaxed(VMCS_GUEST_UINV))
 
         // 64-Bit Guest-State Fields
         .field("VMCS link pointer                              ", &vmread_relaxed(vmcs::guest::LINK_PTR_FULL))
@@ -917,6 +944,8 @@ impl core::fmt::Debug for Vmcs {
         .field("Guest PDPTE3                                   ", &vmread_relaxed(vmcs::guest::PDPTE3_FULL))
         .field("Guest IA32_BNDCFGS                             ", &vmread_relaxed(vmcs::guest::IA32_BNDCFGS_FULL))
         .field("Guest IA32_RTIT_CTL                            ", &vmread_relaxed(vmcs::guest::IA32_RTIT_CTL_FULL))
+        .field("Guest IA32_LBR_CTL                             ", &vmread_relaxed(VMCS_GUEST_IA32_LBR_CTL))
+        .field("Guest IA32_PKRS                                ", &vmread_relaxed(VMCS_GUEST_IA32_PKRS))
 
         // 32-Bit Guest-State Fields
         .field("Guest ES Limit                                 ", &vmread_relaxed(vmcs::guest::ES_LIMIT))
@@ -964,6 +993,9 @@ impl core::fmt::Debug for Vmcs {
         .field("Guest pending debug exceptions                 ", &vmread_relaxed(vmcs::guest::PENDING_DBG_EXCEPTIONS))
         .field("Guest IA32_SYSENTER_ESP                        ", &vmread_relaxed(vmcs::guest::IA32_SYSENTER_ESP))
         .field("Guest IA32_SYSENTER_EIP                        ", &vmread_relaxed(vmcs::guest::IA32_SYSENTER_EIP))
+        .field("Guest IA32_S_CET                               ", &vmread_relaxed(VMCS_GUEST_IA32_S_CET))
+        .field("Guest SSP                                      ", &vmread_relaxed(VMCS_GUEST_SSP))
+        .field("Guest IA32_INTERRUPT_SSP_TABLE_ADDR            ", &vmread_relaxed(VMCS_GUEST_IA32_INTERRUPT_SSP_TABLE_ADDR))
 
         // 16-Bit Host-State Fields
         .field("Host ES Selector                               ", &vmread_relaxed(vmcs::host::ES_SELECTOR))
@@ -978,6 +1010,7 @@ impl core::fmt::Debug for Vmcs {
         .field("Host IA32_PAT                                  ", &vmread_relaxed(vmcs::host::IA32_PAT_FULL))
         .field("Host IA32_EFER                                 ", &vmread_relaxed(vmcs::host::IA32_EFER_FULL))
         .field("Host IA32_PERF_GLOBAL_CTRL                     ", &vmread_relaxed(vmcs::host::IA32_PERF_GLOBAL_CTRL_FULL))
+        .field("Host IA32_PKRS                                 ", &vmread_relaxed(VMCS_HOST_IA32_PKRS))
 
         // 32-Bit Host-State Fields
         .field("Host IA32_SYSENTER_CS                          ", &vmread_relaxed(vmcs::host::IA32_SYSENTER_CS))
@@ -995,11 +1028,16 @@ impl core::fmt::Debug for Vmcs {
         .field("Host IA32_SYSENTER_EIP                         ", &vmread_relaxed(vmcs::host::IA32_SYSENTER_EIP))
         .field("Host RSP                                       ", &vmread_relaxed(vmcs::host::RSP))
         .field("Host RIP                                       ", &vmread_relaxed(vmcs::host::RIP))
+        .field("Host IA32_S_CET                                ", &vmread_relaxed(VMCS_HOST_IA32_S_CET))
+        .field("Host SSP                                       ", &vmread_relaxed(VMCS_HOST_SSP))
+        .field("Host IA32_INTERRUPT_SSP_TABLE_ADDR             ", &vmread_relaxed(VMCS_HOST_IA32_INTERRUPT_SSP_TABLE_ADDR))
 
         // 16-Bit Control Fields
         .field("Virtual-processor identifier                   ", &vmread_relaxed(vmcs::control::VPID))
         .field("Posted-interrupt notification vector           ", &vmread_relaxed(vmcs::control::POSTED_INTERRUPT_NOTIFICATION_VECTOR))
         .field("EPTP index                                     ", &vmread_relaxed(vmcs::control::EPTP_INDEX))
+        .field("HLAT prefix size                               ", &vmread_relaxed(VMCS_CONTROL_HLAT_PREFIX_SIZE))
+        .field("Last PID-pointer index                         ", &vmread_relaxed(VMCS_CONTROL_LAST_PID_POINTER_INDEX))
 
         // 64-Bit Control Fields
         .field("Address of I/O bitmap A                        ", &vmread_relaxed(vmcs::control::IO_BITMAP_A_ADDR_FULL))
@@ -1028,6 +1066,17 @@ impl core::fmt::Debug for Vmcs {
         .field("ENCLS-exiting bitmap                           ", &vmread_relaxed(vmcs::control::ENCLS_EXITING_BITMAP_FULL))
         .field("Sub-page-permission-table pointer              ", &vmread_relaxed(vmcs::control::SUBPAGE_PERM_TABLE_PTR_FULL))
         .field("TSC multiplier                                 ", &vmread_relaxed(vmcs::control::TSC_MULTIPLIER_FULL))
+        .field("Tertiary processor-based VM-execution controls ", &vmread_relaxed(VMCS_CONTROL_TERTIARY_PROCESSOR_BASED_VM_EXECUTION_CONTROLS))
+        .field("ENCLV-exiting bitmap                           ", &vmread_relaxed(VMCS_CONTROL_ENCLV_EXITING_BITMAP))
+        .field("Low PASID directory address                    ", &vmread_relaxed(VMCS_CONTROL_LOW_PASID_DIRECTORY_ADDRESS))
+        .field("High PASID directory address                   ", &vmread_relaxed(VMCS_CONTROL_HIGH_PASID_DIRECTORY_ADDRESS))
+        .field("Shared EPT pointer                             ", &vmread_relaxed(VMCS_CONTROL_SHARED_EPT_POINTER))
+        .field("PCONFIG-exiting bitmap                         ", &vmread_relaxed(VMCS_CONTROL_PCONFIG_EXITING_BITMAP))
+        .field("HLATP                                          ", &vmread_relaxed(VMCS_CONTROL_HLATP))
+        .field("PID-pointer table address                      ", &vmread_relaxed(VMCS_CONTROL_PID_POINTER_TABLE_ADDRESS))
+        .field("Secondary VM-exit controls                     ", &vmread_relaxed(VMCS_CONTROL_SECONDARY_VM_EXIT_CONTROLS))
+        .field("IA32_SPEC_CTRL mask                            ", &vmread_relaxed(VMCS_CONTROL_IA32_SPEC_CTRL_MASK))
+        .field("IA32_SPEC_CTRL shadow                          ", &vmread_relaxed(VMCS_CONTROL_IA32_SPEC_CTRL_SHADOW))
 
         // 32-Bit Control Fields
         .field("Pin-based VM-execution controls                ", &vmread_relaxed(vmcs::control::PINBASED_EXEC_CONTROLS))
@@ -1048,6 +1097,7 @@ impl core::fmt::Debug for Vmcs {
         .field("Secondary processor-based VM-execution controls", &vmread_relaxed(vmcs::control::SECONDARY_PROCBASED_EXEC_CONTROLS))
         .field("PLE_Gap                                        ", &vmread_relaxed(vmcs::control::PLE_GAP))
         .field("PLE_Window                                     ", &vmread_relaxed(vmcs::control::PLE_WINDOW))
+        .field("Instruction-timeout control                    ", &vmread_relaxed(VMCS_CONTROL_INSTRUCTION_TIMEOUT_CONTROL))
 
         // Natural-Width Control Fields
         .field("CR0 guest/host mask                            ", &vmread_relaxed(vmcs::control::CR0_GUEST_HOST_MASK))
