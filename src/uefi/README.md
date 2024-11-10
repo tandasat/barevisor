@@ -132,4 +132,4 @@ You can use VMware Workstation Pro or Fusion Pro to test the hypervisor with a V
     CPU 0: Barevisor!
     ```
 
-You will want to boot an OS after installing Barevisor. Install your choice of a Windows version in the provided VM image  for further testing.
+You will want to boot an OS after installing Barevisor. Install your choice of a Windows version in the provided VM image for further testing.

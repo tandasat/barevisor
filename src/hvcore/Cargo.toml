@@ -13,7 +13,7 @@ publish = false
 
 [dependencies]
 bit_field = "0.10"
-bitfield = "0.16"
+bitfield = "0.17"
 bitvec = { version = "1.0", default-features = false }
 derivative = { version = "2.2", features = ["use_core"] }
 derive_deref = "1.1"
