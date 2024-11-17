@@ -9,6 +9,7 @@ use std::{
 };
 
 use anyhow::{ensure, Result};
+use vnc::client::AuthChoice;
 
 use super::{copy_artifacts_to, TestVm, UnixCommand};
 
@@ -134,7 +135,22 @@ impl TestVm for Vmware {
             });
         });
 
-        println!("🕒 Please select 'EFI Internal Shell (Unsupported option)' on VMware...");
+        // Automatically select 'EFI Internal Shell (Unsupported option)' by
+        // sending keystrokes: down x3, enter x2
+        // Contribution by: github.com/jma-qb
+        let keys = [0xff54, 0xff54, 0xff54, 0xff54, 0xff54, 0xff0d, 0xff0d];
+        thread::sleep(Duration::from_secs(2));
+        let stream = std::net::TcpStream::connect("localhost:5900")?;
+        let mut vnc = vnc::Client::from_tcp_stream(stream, false, |_| Some(AuthChoice::None))?;
+        for key in keys {
+            vnc.send_key_event(true, key)?;
+            thread::sleep(Duration::from_millis(1));
+            vnc.send_key_event(false, key)?;
+            thread::sleep(Duration::from_millis(1));
+        }
+        vnc.disconnect()?;
+
+        // Finally, indefinitely receive messages until CTRL + C is pressed.
         let (tx, rx) = channel();
         ctrlc::set_handler(move || tx.send(()).unwrap())?;
         rx.recv()?;

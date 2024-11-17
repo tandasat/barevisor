@@ -107,11 +107,7 @@ You can use VMware Workstation Pro or Fusion Pro to test the hypervisor with a V
        $ brew install cdrtools
        ```
 
-2. In the `uefi` directory, run `cargo xtask vmware`.
-
-3. One the VM started, select the "EFI Internal Shell (Unsupported option)" boot option.
-
-4. It will automatically load `uefi_hv.efi` as below:
+2. In the `uefi` directory, run `cargo xtask vmware`. It will automatically boot a VM, enter the UEFI shell and load `uefi_hv.efi` as below:
 
     ```text
     startup.nsh> echo -off
