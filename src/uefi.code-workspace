@@ -8,6 +8,10 @@
 		}
 	],
 	"settings": {
-		"rust-analyzer.showUnlinkedFileNotification": false
+		"rust-analyzer.checkOnSave.overrideCommand": [
+			"cargo",
+			"check",
+			"--tests",
+		]
 	}
 }
