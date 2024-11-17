@@ -8,6 +8,7 @@ use core::{
 
 use alloc::boxed::Box;
 use bit_field::BitField;
+use derive_more::Debug;
 use spin::{Lazy, RwLock};
 use x86::{
     bits64::{paging::BASE_PAGE_SHIFT, rflags::RFlags},
@@ -28,8 +29,7 @@ use crate::hypervisor::{
 
 use super::npts::NestedPageTables;
 
-#[derive(derivative::Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub(crate) struct SvmGuest {
     id: usize,
     registers: Registers,
@@ -37,7 +37,7 @@ pub(crate) struct SvmGuest {
     vmcb_pa: u64,
     host_vmcb: Vmcb,
     host_vmcb_pa: u64,
-    #[derivative(Debug = "ignore")]
+    #[debug(skip)]
     host_state: HostStateArea,
     activity_state: &'static AtomicU8,
 }
@@ -529,7 +529,7 @@ impl Default for Vmcb {
 /// (guest) to be executed.
 ///
 /// See: Appendix B Layout of VMCB
-#[derive(Debug, Default)]
+#[derive(Debug)]
 #[repr(C, align(4096))]
 struct VmcbRaw {
     control_area: ControlArea,
@@ -541,8 +541,7 @@ const _: () = assert!(core::mem::size_of::<VmcbRaw>() == 0x1000);
 /// can read details of #VMEXIT.
 ///
 /// See: Table B-1. VMCB Layout, Control Area
-#[derive(derivative::Derivative)]
-#[derivative(Debug, Default)]
+#[derive(Debug)]
 #[repr(C)]
 struct ControlArea {
     intercept_cr_read: u16,   // +0x000
@@ -553,7 +552,7 @@ struct ControlArea {
     intercept_misc1: u32,     // +0x00c
     intercept_misc2: u32,     // +0x010
     intercept_misc3: u32,     // +0x014
-    #[derivative(Debug = "ignore", Default(value = "[0; 36]"))]
+    #[debug(skip)]
     _padding1: [u8; 0x03c - 0x018], // +0x018
     pause_filter_threshold: u16, // +0x03c
     pause_filter_count: u16,  // +0x03e
@@ -580,14 +579,14 @@ struct ControlArea {
     num_of_bytes_fetched: u8, // +0x0d0
     guest_instruction_bytes: [u8; 15], // +0x0d1
     avic_apic_backing_page_pointer: u64, // +0x0e0
-    #[derivative(Debug = "ignore")]
+    #[debug(skip)]
     _padding2: u64, // +0x0e8
     avic_logical_table_pointer: u64, // +0x0f0
     avic_physical_table_pointer: u64, // +0x0f8
-    #[derivative(Debug = "ignore")]
+    #[debug(skip)]
     _padding3: u64, // +0x100
     vmcb_save_state_pointer: u64, // +0x108
-    #[derivative(Debug = "ignore", Default(value = "[0; 720]"))]
+    #[debug(skip)]
     _padding4: [u8; 0x3e0 - 0x110], // +0x110
     reserved_for_host: [u8; 0x20], // +0x3e0
 }
@@ -596,8 +595,7 @@ const _: () = assert!(core::mem::size_of::<ControlArea>() == 0x400);
 /// The ares to specify and read guest register values.
 ///
 /// See: Table B-2. VMCB Layout, State Save Area
-#[derive(derivative::Derivative)]
-#[derivative(Debug, Default)]
+#[derive(Debug)]
 #[repr(C)]
 struct StateSaveArea {
     es_selector: u16,   // +0x000
@@ -640,13 +638,13 @@ struct StateSaveArea {
     tr_attrib: u16,     // +0x092
     tr_limit: u32,      // +0x094
     tr_base: u64,       // +0x098
-    #[derivative(Debug = "ignore", Default(value = "[0; 43]"))]
+    #[debug(skip)]
     _padding1: [u8; 0x0cb - 0x0a0], // +0x0a0
     cpl: u8,            // +0x0cb
-    #[derivative(Debug = "ignore")]
+    #[debug(skip)]
     _padding2: u32, // +0x0cc
     efer: u64,          // +0x0d0
-    #[derivative(Debug = "ignore", Default(value = "[0; 112]"))]
+    #[debug(skip)]
     _padding3: [u8; 0x148 - 0x0d8], // +0x0d8
     cr4: u64,           // +0x148
     cr3: u64,           // +0x150
@@ -655,7 +653,7 @@ struct StateSaveArea {
     dr6: u64,           // +0x168
     rflags: u64,        // +0x170
     rip: u64,           // +0x178
-    #[derivative(Debug = "ignore", Default(value = "[0; 88]"))]
+    #[debug(skip)]
     _padding4: [u8; 0x1d8 - 0x180], // +0x180
     rsp: u64,           // +0x1d8
     s_cet: u64,         // +0x1e0
@@ -671,7 +669,7 @@ struct StateSaveArea {
     sysenter_esp: u64,  // +0x230
     sysenter_eip: u64,  // +0x238
     cr2: u64,           // +0x240
-    #[derivative(Debug = "ignore", Default(value = "[0; 32]"))]
+    #[debug(skip)]
     _padding5: [u8; 0x268 - 0x248], // +0x248
     gpat: u64,          // +0x268
     dbg_ctl: u64,       // +0x270
@@ -679,7 +677,7 @@ struct StateSaveArea {
     br_to: u64,         // +0x280
     last_excep_from: u64, // +0x288
     last_excep_to: u64, // +0x290
-    #[derivative(Debug = "ignore", Default(value = "[0; 71]"))]
+    #[debug(skip)]
     _padding6: [u8; 0x2df - 0x298], // +0x298
     spec_ctl: u64,      // +0x2e0
 }

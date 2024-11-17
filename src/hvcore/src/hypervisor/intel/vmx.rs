@@ -1,6 +1,7 @@
 //! This module implements enablement of Intel VMX.
 
 use alloc::boxed::Box;
+use derive_more::Debug;
 
 use crate::hypervisor::{
     host::Extension,
@@ -81,12 +82,11 @@ impl Default for Vmxon {
 /// The region of memory that the logical processor uses to support VMX operation.
 ///
 /// See: 25.11.5 VMXON Region
-#[derive(derivative::Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 #[repr(C, align(4096))]
 struct VmxonRaw {
     revision_id: u32,
-    #[derivative(Debug = "ignore")]
+    #[debug(skip)]
     data: [u8; 4092],
 }
 

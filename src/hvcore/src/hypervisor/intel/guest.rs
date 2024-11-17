@@ -7,6 +7,7 @@ use alloc::{
     format,
     string::{String, ToString},
 };
+use derive_more::Debug;
 use spin::Lazy;
 use x86::{
     bits64::{paging::BASE_PAGE_SIZE, rflags::RFlags},
@@ -797,7 +798,7 @@ bitfield::bitfield! {
     // compatibility with future processors.
 }
 
-#[derive(Default, derive_deref::Deref, derive_deref::DerefMut)]
+#[derive(derive_deref::Deref, derive_deref::DerefMut)]
 struct Vmcs {
     ptr: Box<VmcsRaw>,
 }
@@ -815,13 +816,12 @@ impl Vmcs {
 /// CPU. Called virtual-machine control data structure (VMCS).
 ///
 /// See: 25.2 FORMAT OF THE VMCS REGION
-#[derive(derivative::Derivative)]
-#[derivative(Default, Debug)]
+#[derive(Debug)]
 #[repr(C, align(4096))]
 struct VmcsRaw {
     revision_id: u32,
     abort_indicator: u32,
-    #[derivative(Default(value = "[0; 4088]"), Debug = "ignore")]
+    #[debug(skip)]
     data: [u8; 4088],
 }
 const _: () = assert!(core::mem::size_of::<VmcsRaw>() == BASE_PAGE_SIZE);
