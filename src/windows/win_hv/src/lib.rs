@@ -12,8 +12,8 @@ use wdk_sys::{
     STATUS_INSUFFICIENT_RESOURCES, STATUS_SUCCESS,
 };
 
-#[link_section = "INIT"]
-#[export_name = "DriverEntry"]
+#[unsafe(link_section = "INIT")]
+#[unsafe(export_name = "DriverEntry")]
 extern "C" fn driver_entry(
     _driver: &mut DRIVER_OBJECT,
     _registry_path: PCUNICODE_STRING,
