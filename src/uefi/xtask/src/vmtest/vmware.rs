@@ -104,11 +104,11 @@ impl TestVm for Vmware {
         } else {
             "ws"
         };
-        let output = Command::new(vmrun)
+        let status = Command::new(vmrun)
             .args(["-T", product_type, "start", vmx_path.as_str()])
             .spawn()?
             .wait()?;
-        ensure!(output.success(), format!("vmrun failed: {output:#?}"));
+        ensure!(status.success(), format!("vmrun failed: {status:#?}"));
 
         // Wait until the serial output file is created. Then, enter loop to read it.
         while !Path::new(log_file).exists() {
