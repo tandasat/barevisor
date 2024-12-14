@@ -45,18 +45,14 @@ enum Commands {
     Vmware,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let cli = Cli::parse();
-    let result = match &cli.command {
+    match cli.command {
         Commands::Build => build(cli.release),
         Commands::Clippy => clippy(),
         Commands::BochsIntel => vmtest::run(&Bochs { cpu: Cpu::Intel }, cli.release),
         Commands::BochsAmd => vmtest::run(&Bochs { cpu: Cpu::Amd }, cli.release),
         Commands::Vmware => vmtest::run(&Vmware {}, cli.release),
-    };
-    if let Err(e) = result {
-        eprintln!("{e}");
-        std::process::exit(-1);
     }
 }
 
