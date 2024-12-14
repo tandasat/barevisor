@@ -72,7 +72,7 @@ impl TestVm for Vmware {
 
         // Stop the VM if requested. This is best effort and failures are ignored.
         let _unused = Command::new(vmrun)
-            .args(["stop", vmx_path.as_str(), "nogui"])
+            .args(["stop", vmx_path.as_str()])
             .output()?;
 
         // If the serial output file exists, delete it to avoid a prompt.
@@ -155,10 +155,9 @@ impl TestVm for Vmware {
         ctrlc::set_handler(move || tx.send(()).unwrap())?;
         rx.recv()?;
 
-        // Stop the VM if requested. This is best effort and failures are ignored.
         println!("🕒 Shutting down the VM\r");
         let _unused = Command::new(vmrun)
-            .args(["stop", vmx_path.as_str(), "nogui"])
+            .args(["stop", vmx_path.as_str()])
             .output()?;
 
         Ok(())
