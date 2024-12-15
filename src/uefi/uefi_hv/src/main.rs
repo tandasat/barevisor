@@ -135,6 +135,7 @@ fn zap_relocation_table(system_table: &SystemTable<Boot>) -> uefi::Result<()> {
     Ok(())
 }
 
+#[cfg(not(any(test, doc)))]
 #[panic_handler]
 fn panic_handler(info: &core::panic::PanicInfo<'_>) -> ! {
     hv::panic_impl(info)

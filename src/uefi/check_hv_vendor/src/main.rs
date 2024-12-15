@@ -72,7 +72,7 @@ extern "efiapi" fn run_callback(context: *mut core::ffi::c_void) {
     callback();
 }
 
-#[cfg(not(test))]
+#[cfg(not(any(test, doc)))]
 #[panic_handler]
 fn panic_handler(info: &core::panic::PanicInfo<'_>) -> ! {
     println!("{info}");
