@@ -19,12 +19,12 @@ macro_rules! eprintln {
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {
-        ($crate::eprintln::_print(format_args!($($arg)*)))
+        ($crate::eprintln::print(format_args!($($arg)*)))
     };
 }
 
 #[doc(hidden)]
-pub(crate) fn _print(args: core::fmt::Arguments<'_>) {
+pub(crate) fn print(args: core::fmt::Arguments<'_>) {
     Write::write_fmt(&mut *DEBUG_PRINTER.lock(), args).unwrap();
 }
 

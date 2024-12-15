@@ -116,7 +116,8 @@ impl TestVm for Vmware {
         }
 
         let _unused = thread::spawn(|| {
-            let output = UnixCommand::new("tail")
+            #[expect(clippy::zombie_processes)]
+            let process = UnixCommand::new("tail")
                 .args(["-f", "/tmp/serial.log"])
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
@@ -126,7 +127,7 @@ impl TestVm for Vmware {
             let now = SystemTime::now();
 
             // Read and print stdout as they come in. This does not return.
-            let reader = BufReader::new(output.stdout.unwrap());
+            let reader = BufReader::new(process.stdout.unwrap());
             reader.lines().map_while(Result::ok).for_each(|line| {
                 println!(
                     "{:>4}: {line}\r",

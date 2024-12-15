@@ -33,11 +33,11 @@ macro_rules! println {
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {
-        ($crate::println::_print(format_args!($($arg)*)))
+        ($crate::println::print(format_args!($($arg)*)))
     };
 }
 
 #[doc(hidden)]
-pub(crate) fn _print(args: core::fmt::Arguments<'_>) {
+pub(crate) fn print(args: core::fmt::Arguments<'_>) {
     core::fmt::Write::write_fmt(&mut system_table().stdout(), args).unwrap();
 }

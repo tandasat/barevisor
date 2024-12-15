@@ -1,4 +1,5 @@
-use alloc::boxed::Box;
+use alloc::{boxed::Box, sync::Arc};
+use spin::Once;
 
 /// A set of platform specific API to be called during the host setup phase.
 pub trait PlatformOps {
@@ -13,12 +14,19 @@ pub trait PlatformOps {
 /// Initializes the platform specific API as provided by `ops`.
 // NOTE: We can or should release this once the host is set up.
 pub fn init(ops: Box<dyn PlatformOps>) {
-    unsafe { PLATFORM_OPS = Some(Box::leak(ops)) };
+    let ops = Arc::new(ops);
+    PLATFORM_OPS.call_once(|| Ops { ops });
 }
 
 /// Returns the platform specific API.
-pub fn get() -> &'static dyn PlatformOps {
-    *unsafe { PLATFORM_OPS.as_ref() }.unwrap()
+pub fn get() -> Arc<Box<dyn PlatformOps>> {
+    PLATFORM_OPS.get().unwrap().ops.clone()
 }
 
-static mut PLATFORM_OPS: Option<&dyn PlatformOps> = None;
+struct Ops {
+    ops: Arc<Box<dyn PlatformOps>>,
+}
+unsafe impl Send for Ops {}
+unsafe impl Sync for Ops {}
+
+static PLATFORM_OPS: Once<Ops> = Once::new();

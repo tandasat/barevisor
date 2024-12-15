@@ -25,7 +25,8 @@ impl TestVm for Bochs {
         // Start a threads that tries to connect to Bochs in an infinite loop.
         let _unused = thread::spawn(|| loop {
             thread::sleep(Duration::from_secs(1));
-            let output = UnixCommand::new("nc")
+            #[expect(clippy::zombie_processes)]
+            let process = UnixCommand::new("nc")
                 .args(["localhost", "14449"])
                 .stdout(Stdio::piped())
                 .stdin(Stdio::piped())
@@ -33,7 +34,7 @@ impl TestVm for Bochs {
                 .unwrap();
 
             let now = SystemTime::now();
-            let reader = BufReader::new(output.stdout.unwrap());
+            let reader = BufReader::new(process.stdout.unwrap());
             reader.lines().map_while(Result::ok).for_each(|line| {
                 println!(
                     "{:>4}: {line}\r",
@@ -54,7 +55,8 @@ impl TestVm for Bochs {
             let bxrc = format!("./bochs/{os_type}_{cpu_type}.bxrc");
 
             // Start Bochs from the "tests" directory in background.
-            let output = UnixCommand::new("bochs")
+            #[expect(clippy::zombie_processes)]
+            let process = UnixCommand::new("bochs")
                 .args(["-q", "-unlock", "-f", &bxrc])
                 .current_dir(Path::new("./tests"))
                 .stdout(Stdio::piped())
@@ -62,7 +64,7 @@ impl TestVm for Bochs {
                 .unwrap();
 
             // Read and print stdout as they come in. This does not return.
-            let reader = BufReader::new(output.stdout.unwrap());
+            let reader = BufReader::new(process.stdout.unwrap());
             reader
                 .lines()
                 .map_while(Result::ok)
