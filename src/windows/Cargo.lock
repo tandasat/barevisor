@@ -81,7 +81,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools",
+ "itertools 0.12.1",
  "lazy_static",
  "lazycell",
  "log",
@@ -164,6 +164,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cc"
+version = "1.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c31a0499c1dc64f458ad13872de75c0eb7e3fdb0e67964610c914b034fc5956e"
+dependencies = [
+ "shlex",
+]
+
+[[package]]
 name = "cexpr"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -177,12 +186,6 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
-
-[[package]]
-name = "cfg_aliases"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "check_hv_vendor"
@@ -277,16 +280,6 @@ dependencies = [
  "libc",
  "num_cpus",
  "winapi",
-]
-
-[[package]]
-name = "ctrlc"
-version = "3.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90eeab0aa92f3f9b4e87f258c72b139c207d251f9cbc1080a0086b86a8870dd3"
-dependencies = [
- "nix",
- "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -404,6 +397,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -484,18 +486,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
-name = "nix"
-version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
-dependencies = [
- "bitflags 2.6.0",
- "cfg-if",
- "cfg_aliases",
- "libc",
-]
-
-[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -556,6 +546,12 @@ name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
+
+[[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "pin-project-lite"
@@ -858,7 +854,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3523ab5a71916ccf420eebdf5521fcef02141234bbc0b8a49f2fdc4544364ef"
 dependencies = [
  "pin-project-lite",
+ "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "395ae124c09f9e6918a2310af6038fba074bcf474ac352496d5910dd59a2226d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -932,38 +940,46 @@ checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
 
 [[package]]
 name = "wdk"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e255fa09cb7395c5f9b8c72831347c9b77aa51fc66c3f44eb5d097a44122e9f"
+checksum = "c80cc00b5c587d3a43f489350a797a258eefca5ab0bb5d0d5b56d4ce09ab42f2"
 dependencies = [
+ "tracing",
+ "tracing-subscriber",
  "wdk-build",
  "wdk-sys",
 ]
 
 [[package]]
 name = "wdk-build"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78da0616ae3b04f9488d250e8b087b7b332e7f1f18b4c7bcedebf7aea6231594"
+checksum = "4b276786d848e5ab00e021968e89cfdc591938b69741a3733e7e3d91b23f547f"
 dependencies = [
+ "anyhow",
  "bindgen",
+ "camino",
  "cargo_metadata",
+ "cfg-if",
  "clap",
  "clap-cargo",
+ "lazy_static",
+ "paste",
  "rustversion",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "tracing",
  "windows",
 ]
 
 [[package]]
 name = "wdk-macros"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65a27743e45f2bacdc8a778482a52ea2fda527bdac95bad5086cee080441b2da"
+checksum = "56f069b2e89e5a3327e84bc2f672f7f35d94059da590666d7d605f33f2ae2fa3"
 dependencies = [
- "cfg-if",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "syn 2.0.87",
@@ -971,15 +987,19 @@ dependencies = [
 
 [[package]]
 name = "wdk-sys"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36c6fbc666a0535164ebbb16cff321ee2cac38636aa6b9f1712148388f401087"
+checksum = "10f974829a3b0b362723d55f0d05d8f1715bb7a88297558c4127f69d85bbff7e"
 dependencies = [
  "anyhow",
  "bindgen",
+ "cargo_metadata",
+ "cc",
  "lazy_static",
  "rustversion",
+ "serde_json",
  "thiserror 1.0.69",
+ "tracing",
  "tracing-subscriber",
  "wdk-build",
  "wdk-macros",
@@ -1032,9 +1052,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windows"
-version = "0.52.0"
+version = "0.58.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e48a53791691ab099e5e2ad123536d0fff50652600abaf43bbf952894110d0be"
+checksum = "dd04d41d93c4992d421894c18c8b43496aa748dd4c081bac0dc93eb0489272b6"
 dependencies = [
  "windows-core",
  "windows-targets",
@@ -1042,10 +1062,55 @@ dependencies = [
 
 [[package]]
 name = "windows-core"
-version = "0.52.0"
+version = "0.58.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
+checksum = "6ba6d44ec8c2591c134257ce647b7ea6b20335bf6379a27dac5f1641fcf59f99"
 dependencies = [
+ "windows-implement",
+ "windows-interface",
+ "windows-result",
+ "windows-strings",
+ "windows-targets",
+]
+
+[[package]]
+name = "windows-implement"
+version = "0.58.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bbd5b46c938e506ecbce286b6628a02171d56153ba733b6c741fc627ec9579b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "windows-interface"
+version = "0.58.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "053c4c462dc91d3b1504c6fe5a726dd15e216ba718e84a0e46a88fbe5ded3515"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "windows-result"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d1043d8214f791817bab27572aaa8af63732e11bf84aa21a45a78d6c317ae0e"
+dependencies = [
+ "windows-targets",
+]
+
+[[package]]
+name = "windows-strings"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cd9b125c486025df0eabcb585e62173c6c9eddcec5d117d3b6e8c30e2ee4d10"
+dependencies = [
+ "windows-result",
  "windows-targets",
 ]
 
@@ -1149,13 +1214,4 @@ dependencies = [
  "bit_field",
  "bitflags 1.3.2",
  "raw-cpuid 10.7.0",
-]
-
-[[package]]
-name = "xtask"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "ctrlc",
 ]
