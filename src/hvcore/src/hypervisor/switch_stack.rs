@@ -5,7 +5,8 @@ use crate::hypervisor::support::Page;
 
 use super::registers::Registers;
 
-/// Installs the hypervisor on the current processor.
+/// Switches the current stack to newly allocated 0x40000-byte space and jumps
+/// to `destination`.
 pub(crate) fn jump_with_new_stack(destination: fn(&Registers) -> !, registers: &Registers) -> ! {
     // Allocate separate stack space. This is never freed.
     let layout = Layout::array::<Page>(0x10).unwrap();

@@ -6,8 +6,8 @@
 .set registers_rdi, 0x20
 .set registers_rsi, 0x28
 .set registers_rbp, 0x30
-.set registers_r8,  0x38
-.set registers_r9,  0x40
+.set registers_r8, 0x38
+.set registers_r9, 0x40
 .set registers_r10, 0x48
 .set registers_r11, 0x50
 .set registers_r12, 0x58

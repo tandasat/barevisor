@@ -14,7 +14,6 @@ publish.workspace = true
 [lints]
 workspace = true
 
-# no_std cannot support `cargo test` and `cargo bench`
 [[bin]]
 name = "uefi_hv"
 test = false

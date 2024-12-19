@@ -14,7 +14,6 @@ publish.workspace = true
 [lints]
 workspace = true
 
-# no_std cannot support `cargo test` and `cargo bench`
 [[bin]]
 name = "check_hv_vendor"
 test = false
@@ -22,4 +21,6 @@ bench = false
 
 [dependencies]
 raw-cpuid = "11.0"
-uefi = { version = "0.30", default-features = false, features = ["global_allocator"] }
+uefi = { version = "0.30", default-features = false, features = [
+    "global_allocator",
+] }
