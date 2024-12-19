@@ -16,4 +16,4 @@ workspace = true
 
 [dependencies]
 core_affinity = "0.8.1"
-raw-cpuid = "11.0"
+raw-cpuid = "11.2.0"
