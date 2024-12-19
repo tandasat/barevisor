@@ -4,7 +4,7 @@ use x86::{
     segmentation::{SegmentSelector, SystemDescriptorTypes64},
 };
 
-#[derive(thiserror_no_std::Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub(crate) enum SegmentError {
     #[error("`{selector}` points to the null descriptor")]
     NullDescriptor { selector: SegmentSelector },

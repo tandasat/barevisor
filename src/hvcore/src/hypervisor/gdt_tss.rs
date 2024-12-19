@@ -36,7 +36,7 @@ pub struct GdtTssRaw {
     pub tr: Option<SegmentSelector>,
 }
 
-#[derive(thiserror_no_std::Error, Clone, Copy, Debug)]
+#[derive(thiserror::Error, Clone, Copy, Debug)]
 pub enum GdtTssError {
     #[error("TSS already in use in the current GDT")]
     TssAlreadyInUse,

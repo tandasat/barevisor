@@ -21,7 +21,7 @@ log = { version = "0.4", default-features = false }
 num-derive = { version = "0.4", default-features = false }
 num-traits = { version = "0.2", default-features = false }
 spin = "0.9"
-thiserror-no-std = "2.0"
+thiserror = { version = "2.0", default-features = false }
 x86 = "0.52"
 
 [dev-dependencies]
