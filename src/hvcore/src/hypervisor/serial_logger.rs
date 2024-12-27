@@ -14,7 +14,7 @@ pub(crate) fn init(level: log::LevelFilter) {
     log::set_max_level(level);
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(Copy, Clone)]
 #[repr(u16)]
 enum SerialPort {

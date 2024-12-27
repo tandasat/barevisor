@@ -50,7 +50,7 @@ pub(crate) struct Pdpt(pub(crate) Table);
 pub(crate) struct Pd(pub(crate) Table);
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct Pt(#[allow(dead_code)] pub(crate) Table);
+pub(crate) struct Pt(pub(crate) Table);
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C, align(4096))]

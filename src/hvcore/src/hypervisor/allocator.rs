@@ -145,7 +145,7 @@ impl Metadata {
     fn new(ptr: *mut u8) -> Self {
         assert!(!ptr.is_null());
         assert!((ptr as usize) % core::mem::align_of::<Self>() == 0);
-        #[allow(clippy::cast_ptr_alignment)]
+        #[expect(clippy::cast_ptr_alignment)]
         let blocks = ptr.cast::<Blocks>();
         Self {
             blocks: unsafe { NonNull::new_unchecked(blocks) },

@@ -653,7 +653,7 @@ extern "C" {
 global_asm!(include_str!("../capture_registers.inc"));
 global_asm!(include_str!("run_guest.S"));
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(Clone, Copy, Debug)]
 enum VmxControl {
     PinBased,
@@ -665,7 +665,7 @@ enum VmxControl {
 }
 
 /// Represents the activity state of a logical processor in VMX operation.
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum GuestActivityState {
@@ -900,7 +900,7 @@ const VMCS_HOST_IA32_INTERRUPT_SSP_TABLE_ADDR: u32 = 0x6C1C;
 
 impl core::fmt::Debug for Vmcs {
     #[rustfmt::skip]
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines)]
     fn fmt(&self, format: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         /// The wrapper of the VMREAD instruction. Returns zero on error.
         fn vmread_relaxed(encoding: u32) -> u64 {

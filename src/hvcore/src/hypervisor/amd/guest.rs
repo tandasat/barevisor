@@ -502,7 +502,7 @@ impl SvmGuest {
 }
 
 /// Table 15-9. TLB Control Byte Encodings
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum TlbControl {

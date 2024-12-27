@@ -40,7 +40,7 @@ impl PlatformOps for WindowsOps {
     }
 
     fn pa(&self, va: *const core::ffi::c_void) -> u64 {
-        #[allow(clippy::cast_sign_loss)]
+        #[expect(clippy::cast_sign_loss)]
         unsafe {
             MmGetPhysicalAddress(va.cast_mut()).QuadPart as u64
         }
