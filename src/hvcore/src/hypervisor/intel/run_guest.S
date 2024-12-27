@@ -32,8 +32,7 @@
 run_vmx_guest:
     xchg    bx, bx
 
-    # Save current (host) general purpose registers onto stack.
-    push    rax
+    # Save current (host) general purpose registers onto stack, except RAX.
     push    rcx
     push    rdx
     push    rbx
@@ -50,7 +49,7 @@ run_vmx_guest:
     push    r15
 
     # Save current (host) XMM registers onto stack too.
-    sub     rsp, 0x60
+    sub     rsp, 0x68
     movaps  xmmword ptr [rsp], xmm0
     movaps  xmmword ptr [rsp + 0x10], xmm1
     movaps  xmmword ptr [rsp + 0x20], xmm2
@@ -150,15 +149,19 @@ run_vmx_guest:
     # Discard the stack value pushed at #1.
     pop     rax
 
+    # Save the rflags value into RAX.
+    pushfq
+    pop     rax
+
     movaps  xmm5, xmmword ptr [rsp + 0x50]
     movaps  xmm4, xmmword ptr [rsp + 0x40]
     movaps  xmm3, xmmword ptr [rsp + 0x30]
     movaps  xmm2, xmmword ptr [rsp + 0x20]
     movaps  xmm1, xmmword ptr [rsp + 0x10]
     movaps  xmm0, xmmword ptr [rsp]
-    add     rsp, 0x60
+    add     rsp, 0x68
 
-    # Restore host general purpose registers from stack.
+    # Restore host general purpose registers from stack except RAX.
     pop     r15
     pop     r14
     pop     r13
@@ -173,9 +176,4 @@ run_vmx_guest:
     pop     rbx
     pop     rdx
     pop     rcx
-    pop     rax
-
-    # Return the rflags value.
-    pushfq
-    pop     rax
     ret
