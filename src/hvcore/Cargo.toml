@@ -23,12 +23,12 @@ log = { version = "0.4.22", default-features = false }
 num-derive = { version = "0.4.2", default-features = false }
 num-traits = { version = "0.2.19", default-features = false }
 spin = "0.9.8"
-thiserror = { version = "2.0.8", default-features = false }
+thiserror = { version = "2.0.9", default-features = false }
 x86 = "0.52.0"
 
 [dev-dependencies]
 ctor = "0.2.9"
-env_logger = "0.11.5"
+env_logger = "0.11.6"
 
 [features]
 default = []
