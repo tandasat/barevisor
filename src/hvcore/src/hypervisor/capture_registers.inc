@@ -17,12 +17,9 @@
 .set registers_rflags, 0x78
 .set registers_rsp, 0x80
 .set registers_rip, 0x88
-.set registers_rflags, 0x78
-.set registers_rsp, 0x80
-.set registers_rip, 0x88
 .set registers_xmm0, 0x90
-.set registers_xmm1, 0xA0
-.set registers_xmm2, 0xB0
-.set registers_xmm3, 0xC0
-.set registers_xmm4, 0xD0
-.set registers_xmm5, 0xE0
+.set registers_xmm1, 0xa0
+.set registers_xmm2, 0xb0
+.set registers_xmm3, 0xc0
+.set registers_xmm4, 0xd0
+.set registers_xmm5, 0xe0
