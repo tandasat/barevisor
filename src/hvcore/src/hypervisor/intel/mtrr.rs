@@ -148,7 +148,7 @@ impl Mtrr {
                 let size_in_bytes = size_in_pages << BASE_PAGE_SHIFT;
 
                 let memory_type =
-                    <MemoryType as FromPrimitive>::from_u64(raw_variable.base & 0xff).unwrap();
+                    <MemoryType as FromPrimitive>::from_u8(raw_variable.base as _).unwrap();
                 let base = raw_variable.base & !0xfff;
                 let range = MemoryTypeRange {
                     memory_type,
@@ -265,7 +265,7 @@ impl RawMtrrs {
             "Fixed range MTRRs not enabled"
         );
         let default_memory_type =
-            <MemoryType as FromPrimitive>::from_u64(default_type & 0b111).unwrap();
+            <MemoryType as FromPrimitive>::from_u8(default_type as _).unwrap();
 
         // Read all fixed range MTRRs.
         let mut fixed = Vec::<RawFixedMtrr>::new();

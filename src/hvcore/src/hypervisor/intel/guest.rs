@@ -638,7 +638,7 @@ struct SharedGuestData {
 
 static SHARED_GUEST_DATA: Lazy<SharedGuestData> = Lazy::new(|| {
     let mut epts = zeroed_box::<Epts>();
-    epts.build_identify();
+    epts.build_identity();
 
     SharedGuestData {
         msr_bitmaps: zeroed_box::<Page>(),

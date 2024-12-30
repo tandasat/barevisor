@@ -15,7 +15,7 @@ pub(crate) struct Epts {
 }
 
 impl Epts {
-    pub(crate) fn build_identify(&mut self) {
+    pub(crate) fn build_identity(&mut self) {
         let mtrr = Mtrr::new();
         log::trace!("{mtrr:#x?}");
         log::trace!("Initializing EPTs");
