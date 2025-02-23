@@ -18,13 +18,12 @@ use x86::{
 };
 
 use crate::hypervisor::{
-    apic_id,
+    SHARED_HOST_DATA, apic_id,
     host::{Guest, InstructionInfo, VmExitReason},
     platform_ops,
     registers::Registers,
     support::zeroed_box,
     x86_instructions::{cr0, cr3, cr4, lidt, rdmsr, sgdt, sidt, wrmsr},
-    SHARED_HOST_DATA,
 };
 
 use super::npts::NestedPageTables;
@@ -174,9 +173,9 @@ impl SvmGuest {
         // Not Write-through
         // Cache Disabled
         let previous_cr0 = cr0().bits();
-        let new_cr0 = 1u64 << 4
-            | (previous_cr0.get_bit(29) as u64) << 29
-            | (previous_cr0.get_bit(30) as u64) << 30;
+        let new_cr0 = (1u64 << 4)
+            | ((previous_cr0.get_bit(29) as u64) << 29)
+            | ((previous_cr0.get_bit(30) as u64) << 30);
         self.vmcb.state_save_area.cr0 = new_cr0;
         self.vmcb.state_save_area.cr2 = 0;
         self.vmcb.state_save_area.cr3 = 0;
@@ -319,7 +318,19 @@ impl SvmGuest {
                     // MOV DWORD PTR [R8+RAX],EDX
                     (self.registers.rdx as _, 4)
                 }
-                [0xc7, 0x81, 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, ..] => {
+                [
+                    0xc7,
+                    0x81,
+                    0xb0,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    ..,
+                ] => {
                     // MOV DWORD PTR [RCX+000000B0],00000000
                     (0, 10)
                 }
@@ -710,9 +721,9 @@ impl Default for HostStateAreaRaw {
     }
 }
 
-extern "C" {
+unsafe extern "C" {
     /// Runs the guest until #VMEXIT occurs.
-    fn run_svm_guest(registers: &mut Registers, vmcb_pa: u64, host_vmcb_pa: u64);
+    unsafe fn run_svm_guest(registers: &mut Registers, vmcb_pa: u64, host_vmcb_pa: u64);
 }
 global_asm!(include_str!("../capture_registers.inc"));
 global_asm!(include_str!("run_guest.S"));

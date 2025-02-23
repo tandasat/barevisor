@@ -100,7 +100,7 @@ struct HostExceptionStack {
 }
 
 /// The host interrupt handler.
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn handle_host_exception(stack: *mut HostExceptionStack) {
     assert!(!stack.is_null());
     let stack = unsafe { &*stack };
@@ -112,6 +112,6 @@ extern "C" fn handle_host_exception(stack: *mut HostExceptionStack) {
 }
 
 global_asm!(include_str!("interrupt_handlers.S"));
-extern "C" {
-    fn asm_interrupt_handler0();
+unsafe extern "C" {
+    unsafe fn asm_interrupt_handler0();
 }

@@ -6,11 +6,10 @@ use x86::{
 };
 
 use crate::hypervisor::{
-    apic_id,
+    HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS, OUR_HV_VENDOR_NAME_EBX,
+    OUR_HV_VENDOR_NAME_ECX, OUR_HV_VENDOR_NAME_EDX, apic_id,
     registers::Registers,
     x86_instructions::{cr4, cr4_write, rdmsr, wrmsr, xsetbv},
-    HV_CPUID_INTERFACE, HV_CPUID_VENDOR_AND_MAX_FUNCTIONS, OUR_HV_VENDOR_NAME_EBX,
-    OUR_HV_VENDOR_NAME_ECX, OUR_HV_VENDOR_NAME_EDX,
 };
 
 use super::{amd::Amd, intel::Intel};

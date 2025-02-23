@@ -67,7 +67,7 @@ impl SegmentDescriptor {
 
     pub(crate) fn base(&self) -> u64 {
         if let Some(upper_base) = self.upper_base {
-            self.low64.base() as u64 | u64::from(upper_base) << 32
+            self.low64.base() as u64 | (u64::from(upper_base) << 32)
         } else {
             self.low64.base() as _
         }

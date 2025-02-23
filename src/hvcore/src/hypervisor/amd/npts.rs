@@ -3,7 +3,7 @@ use bit_field::BitField;
 use x86::bits64::paging::{BASE_PAGE_SHIFT, BASE_PAGE_SIZE};
 
 use crate::hypervisor::{
-    paging_structures::{build_identity_internal, Entry, PagingStructuresRaw, Pt},
+    paging_structures::{Entry, PagingStructuresRaw, Pt, build_identity_internal},
     platform_ops,
     support::zeroed_box,
     x86_instructions::rdmsr,

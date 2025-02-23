@@ -12,21 +12,21 @@ use spin::Lazy;
 use x86::{
     bits64::{paging::BASE_PAGE_SIZE, rflags::RFlags},
     controlregs::{Cr0, Cr4},
-    debugregs::{dr0_write, dr1_write, dr2_write, dr3_write, dr6_write, dr7_write, Dr6, Dr7},
+    debugregs::{Dr6, Dr7, dr0_write, dr1_write, dr2_write, dr3_write, dr6_write, dr7_write},
     segmentation::{
-        cs, ds, es, fs, gs, ss, CodeSegmentType, DataSegmentType, SystemDescriptorTypes64,
+        CodeSegmentType, DataSegmentType, SystemDescriptorTypes64, cs, ds, es, fs, gs, ss,
     },
     vmx::vmcs,
 };
 
 use crate::hypervisor::{
+    SHARED_HOST_DATA,
     host::{Guest, InstructionInfo, VmExitReason},
     platform_ops,
     registers::Registers,
     segment::SegmentDescriptor,
-    support::{zeroed_box, Page},
+    support::{Page, zeroed_box},
     x86_instructions::{cr0, cr3, cr4, lar, ldtr, lsl, rdmsr, sgdt, sidt, tr, write_cr2},
-    SHARED_HOST_DATA,
 };
 
 use super::epts::Epts;
@@ -646,9 +646,9 @@ static SHARED_GUEST_DATA: Lazy<SharedGuestData> = Lazy::new(|| {
     }
 });
 
-extern "C" {
+unsafe extern "C" {
     /// Runs the guest until VM-exit occurs.
-    fn run_vmx_guest(registers: &mut Registers) -> u64;
+    unsafe fn run_vmx_guest(registers: &mut Registers) -> u64;
 }
 global_asm!(include_str!("../capture_registers.inc"));
 global_asm!(include_str!("run_guest.S"));
@@ -770,9 +770,6 @@ bitfield::bitfield! {
     /// results in a segment not present exception (#NP). This bit is used to control loading of segments that
     /// might not be currently available in memory.
     present, set_present: 7;
-
-    /// Reserved bits (11:8). These bits are reserved and should not be modified. They are present for alignment
-    /// and future compatibility.
 
     /// Available for use by system software (bit 12). This bit is available for use by system software and does not
     /// have a defined meaning in the VMX operation. It can be used by hypervisors to store additional information.

@@ -1,7 +1,7 @@
 [package]
 name = "hv"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Satoshi Tanda <tanda.sat@gmail.com>"]
 description = "A minimalistic hypervisor on AMD and Intel processors"
 license = "MIT"

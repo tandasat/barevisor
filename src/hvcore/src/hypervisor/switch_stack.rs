@@ -20,9 +20,9 @@ pub(crate) fn jump_with_new_stack(destination: fn(&Registers) -> !, registers: &
     unsafe { switch_stack(registers, destination as *const () as _, stack_base) };
 }
 
-extern "C" {
+unsafe extern "C" {
     /// Jumps to the landing code with the new stack pointer.
-    fn switch_stack(registers: &Registers, destination: usize, stack_base: u64) -> !;
+    unsafe fn switch_stack(registers: &Registers, destination: usize, stack_base: u64) -> !;
 }
 global_asm!(
     r#"

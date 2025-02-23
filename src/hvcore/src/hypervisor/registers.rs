@@ -46,9 +46,9 @@ pub(crate) struct Xmm {
     pub(crate) hight: u64,
 }
 
-extern "C" {
+unsafe extern "C" {
     /// Captures current register values.
-    fn capture_registers(registers: &mut Registers);
+    unsafe fn capture_registers(registers: &mut Registers);
 }
 global_asm!(include_str!("capture_registers.inc"));
 global_asm!(include_str!("capture_registers.S"));

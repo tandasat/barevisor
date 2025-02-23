@@ -21,9 +21,10 @@ pub(crate) fn init() {
     assert!(PROCESSOR_COUNT.load(Ordering::Relaxed) == 0);
     platform_ops::get().run_on_all_processors(|| {
         let mut map = APIC_ID_MAP.write();
-        assert!(map
-            .insert(get(), PROCESSOR_COUNT.fetch_add(1, Ordering::Relaxed))
-            .is_none());
+        assert!(
+            map.insert(get(), PROCESSOR_COUNT.fetch_add(1, Ordering::Relaxed))
+                .is_none()
+        );
     });
 }
 

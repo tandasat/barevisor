@@ -1,7 +1,7 @@
 use core::fmt::Write;
 
 use spin::Mutex;
-use wdk_sys::{ntddk::DbgPrintEx, DPFLTR_ERROR_LEVEL, _DPFLTR_TYPE::DPFLTR_IHVDRIVER_ID};
+use wdk_sys::{_DPFLTR_TYPE::DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, ntddk::DbgPrintEx};
 
 /// Debug prints a message to a kernel debugger with a newline.
 #[macro_export]

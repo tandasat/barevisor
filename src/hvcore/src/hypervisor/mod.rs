@@ -22,7 +22,7 @@ use alloc::vec::Vec;
 use spin::Once;
 use x86::cpuid::cpuid;
 
-use crate::{hypervisor::registers::Registers, GdtTss, PagingStructures};
+use crate::{GdtTss, PagingStructures, hypervisor::registers::Registers};
 
 use self::interrupt_handlers::InterruptDescriptorTable;
 

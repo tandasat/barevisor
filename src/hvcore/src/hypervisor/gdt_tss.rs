@@ -4,9 +4,9 @@
 use alloc::{boxed::Box, vec::Vec};
 use x86::{
     bits64::task::TaskStateSegment,
-    dtables::{lgdt, DescriptorTablePointer},
+    dtables::{DescriptorTablePointer, lgdt},
     segmentation::{
-        cs, BuildDescriptor, Descriptor, DescriptorBuilder, GateDescriptorBuilder, SegmentSelector,
+        BuildDescriptor, Descriptor, DescriptorBuilder, GateDescriptorBuilder, SegmentSelector, cs,
     },
     task::{load_tr, tr},
 };

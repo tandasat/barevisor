@@ -5,7 +5,7 @@
 
 use core::{
     alloc::{GlobalAlloc, Layout},
-    ptr::{addr_of, addr_of_mut, NonNull},
+    ptr::{NonNull, addr_of, addr_of_mut},
 };
 
 use bitvec::{array::BitArray, prelude::*};
