@@ -12,6 +12,7 @@ repository = "https://github.com/tandasat/barevisor"
 keywords = ["AMD", "Intel", "hypervisor"]
 categories = ["development-tools::testing", "no-std"]
 readme = "./README.md"
+rust-version = "1.85"
 publish = false
 
 [profile.dev]
