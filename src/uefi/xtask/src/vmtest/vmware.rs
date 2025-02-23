@@ -65,14 +65,19 @@ impl TestVm for Vmware {
         };
 
         let vmx_path = if wsl::is_wsl() {
-            windows_path("./tests/samples/vmware/NoOS_windows.vmx")
+            "./tests/samples/vmware/NoOS_windows.vmx".to_string()
         } else {
             format!("./tests/samples/vmware/NoOS_{}.vmx", env::consts::OS)
+        };
+        let vmx_path_for_vmrun = if wsl::is_wsl() {
+            windows_path(vmx_path.as_str())
+        } else {
+            vmx_path.clone()
         };
 
         // Stop the VM if requested. This is best effort and failures are ignored.
         let _unused = Command::new(vmrun)
-            .args(["stop", vmx_path.as_str()])
+            .args(["stop", vmx_path_for_vmrun.as_str()])
             .output()?;
 
         // If the serial output file exists, delete it to avoid a prompt.
@@ -105,7 +110,7 @@ impl TestVm for Vmware {
             "ws"
         };
         let status = Command::new(vmrun)
-            .args(["-T", product_type, "start", vmx_path.as_str()])
+            .args(["-T", product_type, "start", vmx_path_for_vmrun.as_str()])
             .spawn()?
             .wait()?;
         ensure!(status.success(), format!("vmrun failed: {status:#?}"));
@@ -158,7 +163,7 @@ impl TestVm for Vmware {
 
         println!("🕒 Shutting down the VM\r");
         let _unused = Command::new(vmrun)
-            .args(["stop", vmx_path.as_str()])
+            .args(["stop", vmx_path_for_vmrun.as_str()])
             .output()?;
 
         Ok(())
