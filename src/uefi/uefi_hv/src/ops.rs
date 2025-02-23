@@ -3,23 +3,12 @@ use core::ffi::c_void;
 use hv::platform_ops::PlatformOps;
 use uefi::{prelude::*, proto::pi::mp::MpServices};
 
-pub(crate) struct UefiOps {
-    system_table: SystemTable<Boot>,
-}
-
-impl UefiOps {
-    pub(crate) fn new(system_table: &SystemTable<Boot>) -> Self {
-        Self {
-            system_table: unsafe { system_table.unsafe_clone() },
-        }
-    }
-}
+pub(crate) struct UefiOps;
 
 impl PlatformOps for UefiOps {
     fn run_on_all_processors(&self, callback: fn()) {
-        let bs = self.system_table.boot_services();
-        let handle = bs.get_handle_for_protocol::<MpServices>().unwrap();
-        let mp_services = bs.open_protocol_exclusive::<MpServices>(handle).unwrap();
+        let handle = boot::get_handle_for_protocol::<MpServices>().unwrap();
+        let mp_services = boot::open_protocol_exclusive::<MpServices>(handle).unwrap();
 
         callback();
 

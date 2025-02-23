@@ -10,37 +10,34 @@ mod println;
 use alloc::{boxed::Box, vec::Vec};
 use hv::{GdtTss, PagingStructures};
 use uefi::{
+    boot::{AllocateType, MemoryType},
     prelude::*,
     proto::{loaded_image::LoadedImage, pi::mp::MpServices},
-    table::boot::{AllocateType, MemoryType},
 };
 use x86::bits64::task::TaskStateSegment;
 
 #[entry]
-fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
-    println::init(&system_table);
+fn main() -> Status {
     println!("Loading uefi_hv.efi");
 
-    // Initialize the global allocator with pre-allocated buffer.
-    let ptr = system_table
-        .boot_services()
-        .allocate_pages(
-            AllocateType::AnyPages,
-            MemoryType::RUNTIME_SERVICES_DATA,
-            hv::allocator::ALLOCATION_PAGES,
-        )
-        .unwrap_or(0) as *mut u8;
-    if ptr.is_null() {
-        println!("Memory allocation failed");
-        return Status::OUT_OF_RESOURCES;
+    // Initialize the global allocator with allocated buffer.
+    match boot::allocate_pages(
+        AllocateType::AnyPages,
+        MemoryType::RUNTIME_SERVICES_DATA,
+        hv::allocator::ALLOCATION_PAGES,
+    ) {
+        Ok(ptr) => hv::allocator::init(ptr.as_ptr()),
+        Err(e) => {
+            println!("Memory allocation failed: {e}");
+            return e.status();
+        }
     }
-    hv::allocator::init(ptr);
 
     // Register the platform specific API.
-    hv::platform_ops::init(Box::new(ops::UefiOps::new(&system_table)));
+    hv::platform_ops::init(Box::new(ops::UefiOps));
 
     // Prevent relocation. See the function comment.
-    if let Err(e) = zap_relocation_table(&system_table) {
+    if let Err(e) = zap_relocation_table() {
         println!("zap_relocation_table failed: {e}");
         return e.status();
     }
@@ -60,7 +57,7 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
     // version, the current IDT, GDT, TSS and paging structures are destroyed as
     // the system transition to the runtime-phase. Thus, the host cannot depend
     // on them and needs its own data structures.
-    match create_shared_host_data(&system_table) {
+    match create_shared_host_data() {
         Ok(shared_host) => hv::virtualize_system(shared_host),
         Err(e) => {
             println!("create_shared_host_data failed: {e}");
@@ -76,12 +73,11 @@ fn main(image_handle: Handle, system_table: SystemTable<Boot>) -> Status {
 // - GDT and TSS are clones of the current.
 // - IDT is as implemented in `hv::InterruptDescriptorTable`.
 // - Paging structures are identity mapped and all RWX.
-fn create_shared_host_data(system_table: &SystemTable<Boot>) -> uefi::Result<hv::SharedHostData> {
+fn create_shared_host_data() -> uefi::Result<hv::SharedHostData> {
     /// Gets the number of usable logical processors on this system.
-    fn processor_count(system_table: &SystemTable<Boot>) -> uefi::Result<u32> {
-        let bs = system_table.boot_services();
-        let handle = bs.get_handle_for_protocol::<MpServices>()?;
-        let mp_services = bs.open_protocol_exclusive::<MpServices>(handle)?;
+    fn processor_count() -> uefi::Result<u32> {
+        let handle = boot::get_handle_for_protocol::<MpServices>()?;
+        let mp_services = boot::open_protocol_exclusive::<MpServices>(handle)?;
         Ok(u32::try_from(mp_services.get_number_of_processors().unwrap().enabled).unwrap())
     }
 
@@ -89,7 +85,7 @@ fn create_shared_host_data(system_table: &SystemTable<Boot>) -> uefi::Result<hv:
     // GDT and TSS for each processor.
     let gdt_tss = GdtTss::new_from_current();
     let mut host_gdt_tss = Vec::<GdtTss>::new();
-    for _ in 0..processor_count(system_table)? {
+    for _ in 0..processor_count()? {
         host_gdt_tss.push(gdt_tss.clone());
     }
 
@@ -117,12 +113,11 @@ fn create_shared_host_data(system_table: &SystemTable<Boot>) -> uefi::Result<hv:
 // the relocation information and prevents UEFI from patching this module. The
 // other way to avoid this issue is to load the hypervisor as shellcode (ie, not
 // being an UEFI runtime driver).
-fn zap_relocation_table(system_table: &SystemTable<Boot>) -> uefi::Result<()> {
+fn zap_relocation_table() -> uefi::Result<()> {
     const NT_RELOCATION_DIRECTORY_RVA: u64 = 0x128;
     const NT_RELOCATION_DIRECTORY_SIZE: u64 = 0x12c;
 
-    let bs = system_table.boot_services();
-    let loaded_image = bs.open_protocol_exclusive::<LoadedImage>(bs.image_handle())?;
+    let loaded_image = boot::open_protocol_exclusive::<LoadedImage>(boot::image_handle())?;
     let (image_base, image_size) = loaded_image.info();
     let image_base = image_base as u64;
     let image_range = image_base..image_base + image_size;

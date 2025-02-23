@@ -21,7 +21,7 @@ extern "C" fn driver_entry(
     const POOL_TAG: u32 = u32::from_ne_bytes(*b"Bare");
     eprintln!("Loading win_hv.sys");
 
-    // Initialize the global allocator with pre-allocated buffer.
+    // Initialize the global allocator with allocated buffer.
     let ptr = unsafe {
         ExAllocatePool2(
             POOL_FLAG_NON_PAGED,

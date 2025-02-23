@@ -1,21 +1,6 @@
-use core::{
-    ffi::c_void,
-    ptr,
-    sync::atomic::{AtomicPtr, Ordering},
-};
+use core::fmt::Write;
 
-use uefi::table::{Boot, SystemTable};
-
-pub(crate) fn init(system_table: &SystemTable<Boot>) {
-    SYSTEM_TABLE.store(system_table.as_ptr().cast_mut(), Ordering::Release);
-}
-
-static SYSTEM_TABLE: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
-
-fn system_table() -> SystemTable<Boot> {
-    let ptr = SYSTEM_TABLE.load(Ordering::Acquire);
-    unsafe { SystemTable::from_ptr(ptr) }.unwrap()
-}
+use uefi::system;
 
 /// Debug prints a message to stdout with a newline.
 #[macro_export]
@@ -39,5 +24,7 @@ macro_rules! print {
 
 #[doc(hidden)]
 pub(crate) fn print(args: core::fmt::Arguments<'_>) {
-    core::fmt::Write::write_fmt(&mut system_table().stdout(), args).unwrap();
+    system::with_stdout(|stdout| {
+        stdout.write_fmt(args).unwrap();
+    });
 }

@@ -372,7 +372,7 @@ impl SvmGuest {
         // the guest wanted to do and bail out.
         // Table 16-2. APIC Registers
         if message_type != 0b110 || apic_register != 0x300 {
-            // Safety: GPA is same as PA in our NTPs, and the faulting address
+            // SAFETY: GPA is same as PA in our NTPs, and the faulting address
             // is always the local APIC page, which is writable in the host
             // address space.
             let apic_reg = faulting_gpa as *mut u32;
@@ -391,7 +391,7 @@ impl SvmGuest {
             "Destination Shorthand must be 'Destination'"
         );
 
-        // Safety: GPA is same as PA in our NTPs, and the faulting address
+        // SAFETY: GPA is same as PA in our NTPs, and the faulting address
         // is always the local APIC page, which is writable in the host
         // address space.
         let icr_high_addr = (faulting_gpa & !0xfff) | 0x310;
