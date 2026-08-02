@@ -98,7 +98,7 @@ impl Epts {
             // Initialize each PDPT with 1GB pages.
             for pdpte in &mut self.pdpt[pml4_index].0.entries {
                 let memory_type = mtrr
-                    .find(pa..pa + PML4_SLOT_SIZE as u64)
+                    .find(pa..pa + HUGE_PAGE_SIZE as u64)
                     .unwrap_or_else(|| panic!("Could not resolve a memory type for {pa:#x?}"));
                 pdpte.set_readable(true);
                 pdpte.set_writable(true);
